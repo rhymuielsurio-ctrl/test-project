@@ -1,17 +1,25 @@
+import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { handleApiError } from "@/lib/errors";
-import { accrueAllBalances } from "@/lib/mock-data";
-import { loadMockState, saveMockState } from "@/lib/mock-state";
+import { accrueBalances } from "@/lib/leave-store";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
   try {
-    await requireAuth(["hr_admin"]);
+    const cronSecret = process.env.CRON_SECRET;
+    const authHeader = request.headers.get("authorization");
 
-    await loadMockState();
-    accrueAllBalances();
-    await saveMockState();
+    const isCronCall = Boolean(cronSecret) && authHeader === `Bearer ${cronSecret}`;
 
-    return Response.json({ success: true, data: { processed: true } }, { status: 200 });
+    if (!isCronCall) {
+      await requireAuth(["hr_admin"]);
+    }
+
+    const accruedCount = await accrueBalances();
+
+    return Response.json(
+      { success: true, data: { processed: true, accruedCount } },
+      { status: 200 },
+    );
   } catch (error) {
     return handleApiError(error);
   }
