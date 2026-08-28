@@ -2,6 +2,11 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { AppNav } from "@/components/layout/app-nav";
 import { Navbar } from "@/components/layout/navbar";
+import { Toaster } from "@/components/ui/sonner";
+import { Geist } from "next/font/google";
+import { cn } from "@/lib/utils";
+
+const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: "LeaveTrack",
@@ -10,12 +15,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body className="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased">
+    <html lang="en" className={cn("font-sans", geist.variable)}>
+      <body className="bg-muted/40 text-foreground antialiased">
         <AppNav>
           <Navbar />
         </AppNav>
         {children}
+        <Toaster richColors position="bottom-right" />
       </body>
     </html>
   );

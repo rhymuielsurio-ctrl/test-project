@@ -1,5 +1,15 @@
-import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { StatusBadge } from "@/components/features/status-badge";
+import { Card } from "@/components/ui/card";
+import { Loader2, ShieldCheck, ShieldX } from "lucide-react";
 
 export interface EnrichedLeaveRequest {
   id: string;
@@ -19,15 +29,6 @@ interface ManagerQueueTableProps {
   onReject: (requestId: string) => void;
 }
 
-function statusToVariant(status: EnrichedLeaveRequest["status"]): "success" | "warning" | "error" {
-  const map: Record<EnrichedLeaveRequest["status"], "success" | "warning" | "error"> = {
-    approved: "success",
-    pending: "warning",
-    rejected: "error",
-  };
-  return map[status];
-}
-
 export function ManagerQueueTable({
   requests,
   processingId,
@@ -36,85 +37,83 @@ export function ManagerQueueTable({
 }: ManagerQueueTableProps) {
   if (requests.length === 0) {
     return (
-      <div className="rounded-lg border border-slate-200 bg-white p-8 text-center" role="status">
-        <p className="text-sm text-slate-500">
+      <Card className="flex flex-col items-center gap-2 p-10 text-center" role="status">
+        <ShieldCheck className="size-8 text-muted-foreground/40" />
+        <p className="text-sm text-muted-foreground">
           No pending leave requests from your direct reports.
         </p>
-      </div>
+      </Card>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200">
-      <table className="w-full text-left text-sm" aria-label="Manager approval queue">
-        <thead className="bg-slate-50 text-xs text-slate-600">
-          <tr>
-            <th scope="col" className="px-3 py-2">
-              Employee
-            </th>
-            <th scope="col" className="px-3 py-2">
-              Leave Type
-            </th>
-            <th scope="col" className="px-3 py-2">
-              Requested Dates
-            </th>
-            <th scope="col" className="px-3 py-2 text-right">
-              Total Days
-            </th>
-            <th scope="col" className="px-3 py-2">
-              Status
-            </th>
-            <th scope="col" className="px-3 py-2">
-              Actions
-            </th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100">
-          {requests.map((r) => (
-            <tr key={r.id} className="bg-white">
-              <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-900">
-                {r.employeeName}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2">{r.leaveTypeName}</td>
-              <td className="whitespace-nowrap px-3 py-2">
-                {r.start_date} — {r.end_date}
-              </td>
-              <td className="whitespace-nowrap px-3 py-2 text-right">{r.totalDays}</td>
-              <td className="px-3 py-2">
-                <Badge variant={statusToVariant(r.status)}>{r.status}</Badge>
-              </td>
-              {r.status === "pending" && (
-                <td className="whitespace-nowrap px-3 py-2">
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      className="w-full sm:w-auto"
-                      loading={processingId === r.id}
-                      disabled={processingId !== null}
-                      onClick={() => onApprove(r.id)}
-                      aria-label={`Approve ${r.employeeName}'s request`}
-                    >
-                      Approve
-                    </Button>
-                    <Button
-                      variant="danger"
-                      size="sm"
-                      className="w-full sm:w-auto"
-                      loading={processingId === r.id}
-                      disabled={processingId !== null}
-                      onClick={() => onReject(r.id)}
-                      aria-label={`Reject ${r.employeeName}'s request`}
-                    >
-                      Reject
-                    </Button>
-                  </div>
-                </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="overflow-hidden rounded-lg border bg-card">
+      <Table aria-label="Manager approval queue">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Employee</TableHead>
+            <TableHead>Leave Type</TableHead>
+            <TableHead>Requested Dates</TableHead>
+            <TableHead className="text-right">Total Days</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {requests.map((r) => {
+            const isProcessing = processingId === r.id;
+            return (
+              <TableRow key={r.id}>
+                <TableCell className="font-medium">{r.employeeName}</TableCell>
+                <TableCell className="whitespace-nowrap">{r.leaveTypeName}</TableCell>
+                <TableCell className="whitespace-nowrap tabular-nums">
+                  {r.start_date} — {r.end_date}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">{r.totalDays}</TableCell>
+                <TableCell>
+                  <StatusBadge status={r.status} />
+                </TableCell>
+                {r.status === "pending" && (
+                  <TableCell>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full sm:w-auto"
+                        disabled={processingId !== null}
+                        onClick={() => onApprove(r.id)}
+                        aria-label={`Approve ${r.employeeName}'s request`}
+                      >
+                        {isProcessing ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <ShieldCheck className="size-4" />
+                        )}
+                        Approve
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full text-red-600 hover:bg-red-500/10 hover:text-red-700 sm:w-auto"
+                        disabled={processingId !== null}
+                        onClick={() => onReject(r.id)}
+                        aria-label={`Reject ${r.employeeName}'s request`}
+                      >
+                        {isProcessing ? (
+                          <Loader2 className="animate-spin" />
+                        ) : (
+                          <ShieldX className="size-4" />
+                        )}
+                        Reject
+                      </Button>
+                    </div>
+                  </TableCell>
+                )}
+              </TableRow>
+            );
+          })}
+        </TableBody>
+      </Table>
     </div>
   );
 }

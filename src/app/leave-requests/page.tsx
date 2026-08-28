@@ -1,18 +1,20 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Badge } from "@/components/ui/badge";
+import { StatusBadge } from "@/components/features/status-badge";
 import { LeaveBalanceCard } from "@/components/features/leave-balance-card";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { CalendarPlus } from "lucide-react";
+import Link from "next/link";
 import type { DbLeaveRequest } from "@/lib/mock-data";
-
-function statusToVariant(status: DbLeaveRequest["status"]): "success" | "warning" | "error" {
-  const map: Record<DbLeaveRequest["status"], "success" | "warning" | "error"> = {
-    approved: "success",
-    pending: "warning",
-    rejected: "error",
-  };
-  return map[status];
-}
 
 interface LeaveType {
   id: string;
@@ -58,13 +60,10 @@ export default function LeaveBalancePage() {
   if (loading) {
     return (
       <main className="mx-auto max-w-2xl px-4 py-8">
-        <h1 className="mb-6 text-xl font-bold text-slate-900">My Leave Balance</h1>
+        <h1 className="mb-6 text-2xl font-semibold tracking-tight">My Leave Balance</h1>
         <div className="space-y-4">
           {[1, 2].map((i) => (
-            <div
-              key={i}
-              className="h-24 animate-pulse rounded-lg border border-slate-200 bg-slate-100"
-            />
+            <div key={i} className="h-24 animate-pulse rounded-lg border bg-muted" />
           ))}
         </div>
       </main>
@@ -74,20 +73,33 @@ export default function LeaveBalancePage() {
   if (error) {
     return (
       <main className="mx-auto max-w-2xl px-4 py-8">
-        <h1 className="mb-6 text-xl font-bold text-slate-900">My Leave Balance</h1>
-        <div className="rounded-md bg-error-bg p-4 text-sm text-error-text">{error}</div>
+        <h1 className="mb-6 text-2xl font-semibold tracking-tight">My Leave Balance</h1>
+        <div
+          className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive"
+          role="alert"
+        >
+          {error}
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="mb-6 text-xl font-bold text-slate-900">My Leave Balance</h1>
+    <main className="mx-auto max-w-3xl px-4 py-8">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-2xl font-semibold tracking-tight">My Leave Balance</h1>
+        <Button asChild size="sm">
+          <Link href="/leave-requests/new">
+            <CalendarPlus className="size-4" />
+            New Request
+          </Link>
+        </Button>
+      </div>
 
       {data && (
         <>
           <section className="mb-8">
-            <h2 className="mb-3 text-sm font-medium text-slate-600">Available Balances</h2>
+            <h2 className="mb-3 text-sm font-medium text-muted-foreground">Available Balances</h2>
             <div className="space-y-3">
               {data.balances
                 .filter((b) => b.leaveType.tracksBalance)
@@ -105,45 +117,37 @@ export default function LeaveBalancePage() {
 
           {data.requests.length > 0 && (
             <section>
-              <h2 className="mb-3 text-sm font-medium text-slate-600">My Requests</h2>
-              <div className="overflow-x-auto rounded-lg border border-slate-200">
-                <table className="w-full text-left text-sm" aria-label="Leave requests">
-                  <thead className="bg-slate-50 text-xs text-slate-600">
-                    <tr>
-                      <th scope="col" className="px-3 py-2">
-                        Type
-                      </th>
-                      <th scope="col" className="px-3 py-2">
-                        Dates
-                      </th>
-                      <th scope="col" className="px-3 py-2">
-                        Status
-                      </th>
-                      <th scope="col" className="px-3 py-2">
-                        Reason
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
+              <h2 className="mb-3 text-sm font-medium text-muted-foreground">My Requests</h2>
+              <div className="overflow-hidden rounded-lg border bg-card">
+                <Table aria-label="Leave requests">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Dates</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Reason</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {data.requests.map((r) => (
-                      <tr key={r.id} className="bg-white">
-                        <td className="px-3 py-2">
+                      <TableRow key={r.id}>
+                        <TableCell>
                           {data.balances.find((b) => b.leaveType.id === r.leave_type_id)?.leaveType
                             .name ?? r.leave_type_id}
-                        </td>
-                        <td className="whitespace-nowrap px-3 py-2">
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap tabular-nums">
                           {r.start_date} — {r.end_date}
-                        </td>
-                        <td className="px-3 py-2">
-                          <Badge variant={statusToVariant(r.status)}>{r.status}</Badge>
-                        </td>
-                        <td className="max-w-[120px] truncate px-3 py-2 text-slate-500">
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={r.status} />
+                        </TableCell>
+                        <TableCell className="max-w-40 truncate text-muted-foreground">
                           {r.reason}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
             </section>
           )}
