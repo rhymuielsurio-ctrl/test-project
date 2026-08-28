@@ -32,3 +32,6 @@ graphify-out/
 
 # day-0 mock persistence (runtime, generated)
 mock-state.json
+
+.vercel
+.env*
