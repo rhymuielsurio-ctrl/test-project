@@ -10,8 +10,15 @@ function secretMatches(authHeader: string | null, secret: string): boolean {
   const received = createHash("sha256").update(authHeader).digest();
   return timingSafeEqual(expected, received);
 }
+export async function GET(request: NextRequest) {
+  return runAccrual(request);
+}
 
 export async function POST(request: NextRequest) {
+  return runAccrual(request);
+}
+
+async function runAccrual(request: NextRequest) {
   try {
     const cronSecret = process.env.CRON_SECRET;
     const authHeader = request.headers.get("authorization");
