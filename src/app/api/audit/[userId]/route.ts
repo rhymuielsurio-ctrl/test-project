@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { AppError, handleApiError } from "@/lib/errors";
-import { findUserById } from "@/lib/mock-data";
-import { listAuditReport } from "@/lib/leave-store";
+import { listAuditReport, userExists } from "@/lib/leave-store";
 
 export async function GET(
   _request: NextRequest,
@@ -12,8 +11,8 @@ export async function GET(
     await requireAuth(["hr_admin"]);
     const { userId } = await params;
 
-    const user = findUserById(userId);
-    if (!user) {
+    const exists = await userExists(userId);
+    if (!exists) {
       throw new AppError("NOT_FOUND", "User not found", 404);
     }
 

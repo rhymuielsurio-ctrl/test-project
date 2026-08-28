@@ -36,10 +36,25 @@
 - Standing creds unused outside dev; the `*-dev-pass` reminder from the PR #1
   review is still open (host-guard `db:setup`).
 
-## Notes
+## Post-review fixes (same day)
 
-- pg DECIMAL → string; fixed with `::float8` at the query boundary so wire
-  numbers/types never changed. See
-  `knowledge/patterns/postgres-data-layer-swap.md`.
+Code review before the PR flagged two HIGHs — both fixed and re-verified:
+
+- **TOCTOU double-approval.** Proof: `FOR UPDATE OF r, b` is ILLEGAL in
+  Postgres when `b` is the nullable side of a `LEFT JOIN` (error 0A000) — the
+  balance is now locked by a separate `SELECT … FOR UPDATE` inside the same
+  transaction, plus a conditional deduction (`… AND balance >= $1`, 0 rows →
+  INSUFFICIENT_BALANCE) as belt-and-braces. This failed E2E exactly once (500)
+  before the fix — great example of why you E2E the review fixes.
+- **Timezone-relative accrual guard.** `date_trunc('month', now())` follows the
+  session timezone (Vercel UTC vs local UTC+8) — the guard now compares
+  `to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM')`.
+- Cheap medium/lows folded in: create+audit atomic (audit insert lives inside
+  `createLeaveRequest`), audit endpoint validates the user via DB `userExists`
+  instead of the static roster, timing-safe `CRON_SECRET` compare, `@/lib/*`
+  imports inside the store.
+- Re-verified: typecheck/lint/build clean, E2E 20/20 + cron-auth 4/4,
+  `accrual-job.ts` prints "Already accrued — skipped" under tsx with the new
+  `@/` imports, wire dates come back `YYYY-MM-DD` (`::text` on INSERT RETURNING).
 - FORBIDDEN path of the store's direct-report check wasn't E2E-exercised
   (only one manager in the roster); covered by unit logic + role gate.

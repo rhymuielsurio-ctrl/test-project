@@ -14,22 +14,6 @@ export interface DbLeaveType {
   tracks_balance: boolean;
 }
 
-export interface DbLeavePolicy {
-  id: string;
-  user_id: string;
-  leave_type_id: string;
-  accrual_per_month: number;
-}
-
-export interface DbLeaveBalance {
-  id: string;
-  user_id: string;
-  leave_type_id: string;
-  balance: number;
-  updated_at: string;
-  accrued_at: string | null;
-}
-
 export interface DbLeaveRequest {
   id: string;
   user_id: string;
@@ -59,10 +43,9 @@ export interface BalanceInfo {
 }
 
 /**
- * Static identity/dev roster. Mirrors the deterministic users seeded by
- * supabase/migrations/002_auth_users.sql (uuids 0000...0001..0004). Kept as a
- * static catalog for name/roster lookups; live leave data lives in Postgres
- * via src/lib/leave-store.ts.
+ * Static dev roster (uuid 0000...0001..0004), mirroring the users seeded by
+ * supabase/migrations/002_auth_users.sql. Used by the audit page for the
+ * employee dropdown; the API endpoints resolve users from Postgres.
  */
 export const MOCK_USERS: DbUser[] = [
   {

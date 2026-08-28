@@ -1,11 +1,11 @@
-import { getPool } from "./db";
-import { AppError } from "./errors";
+import { getPool } from "@/lib/db";
+import { AppError } from "@/lib/errors";
 import {
   calculateBusinessDays,
   type BalanceInfo,
   type DbAuditLog,
   type DbLeaveRequest,
-} from "./mock-data";
+} from "@/lib/mock-data";
 
 export interface LeaveTypeRow {
   id: string;
@@ -74,6 +74,14 @@ export async function listLeaveTypes(): Promise<LeaveTypeRow[]> {
   return rows;
 }
 
+export async function userExists(userId: string): Promise<boolean> {
+  const { rows } = await getPool().query<{ exists: boolean }>(
+    `SELECT EXISTS(SELECT 1 FROM users WHERE id = $1) AS exists`,
+    [userId],
+  );
+  return rows[0]?.exists ?? false;
+}
+
 export async function getBalanceInfo(
   userId: string,
   wireLeaveTypeId: string,
@@ -116,52 +124,60 @@ export async function createLeaveRequest(input: {
   startDate: string;
   endDate: string;
   reason: string;
+  actorId: string;
 }): Promise<DbLeaveRequest> {
   const code = input.wireLeaveTypeId.replace(/^lt-/, "");
+  const client = await getPool().connect();
 
-  const type = await getPool().query<LeaveTypeRow>(
-    `SELECT id, code, name, tracks_balance FROM leave_types WHERE code = $1`,
-    [code],
-  );
-  if (!type.rows[0]) {
-    throw new AppError("VALIDATION_ERROR", "Invalid leave type");
+  try {
+    await client.query("BEGIN");
+
+    const type = await client.query<LeaveTypeRow>(
+      `SELECT id, code, name, tracks_balance FROM leave_types WHERE code = $1`,
+      [code],
+    );
+    if (!type.rows[0]) {
+      throw new AppError("VALIDATION_ERROR", "Invalid leave type");
+    }
+
+    const created = await client.query<{
+      id: string;
+      user_id: string;
+      start_date: string;
+      end_date: string;
+      reason: string;
+      status: string;
+      created_at: Date;
+    }>(
+      `INSERT INTO leave_requests (user_id, leave_type_id, start_date, end_date, reason)
+       VALUES ($1, $2, $3::date, $4::date, $5)
+       RETURNING id, user_id, start_date::text AS start_date, end_date::text AS end_date,
+                 reason, status, created_at`,
+      [input.userId, type.rows[0].id, input.startDate, input.endDate, input.reason],
+    );
+
+    await client.query(
+      `INSERT INTO audit_log (leave_request_id, actor_id, action)
+       VALUES ($1, $2, 'submitted')`,
+      [created.rows[0].id, input.actorId],
+    );
+
+    await client.query("COMMIT");
+
+    const row = created.rows[0];
+    return toWireLeaveRequest({
+      ...row,
+      leave_type_code: code,
+      decided_by: null,
+      decided_at: null,
+      is_deleted: false,
+    });
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
   }
-
-  const created = await getPool().query<{
-    id: string;
-    user_id: string;
-    start_date: string;
-    end_date: string;
-    reason: string;
-    status: string;
-    created_at: Date;
-  }>(
-    `INSERT INTO leave_requests (user_id, leave_type_id, start_date, end_date, reason)
-     VALUES ($1, $2, $3::date, $4::date, $5)
-     RETURNING id, user_id, start_date, end_date, reason, status, created_at`,
-    [input.userId, type.rows[0].id, input.startDate, input.endDate, input.reason],
-  );
-
-  const row = created.rows[0];
-  return toWireLeaveRequest({
-    ...row,
-    leave_type_code: code,
-    decided_by: null,
-    decided_at: null,
-    is_deleted: false,
-  });
-}
-
-export async function insertAuditLog(entry: {
-  leaveRequestId: string;
-  actorId: string;
-  action: string;
-}): Promise<void> {
-  await getPool().query(
-    `INSERT INTO audit_log (leave_request_id, actor_id, action)
-     VALUES ($1, $2, $3)`,
-    [entry.leaveRequestId, entry.actorId, entry.action],
-  );
 }
 
 export async function listRequestsForUser(userId: string): Promise<DbLeaveRequest[]> {
@@ -254,19 +270,15 @@ export async function decideLeaveRequest(input: {
       created_at: Date;
       tracks_balance: boolean;
       request_manager_id: string | null;
-      balance: number | null;
     }>(
       `SELECT r.id, r.user_id, r.leave_type_id, lt.code AS leave_type_code,
               r.start_date::text AS start_date, r.end_date::text AS end_date,
               r.reason, r.status, r.decided_by, r.decided_at,
               r.is_deleted, r.created_at,
-              lt.tracks_balance, u.manager_id AS request_manager_id,
-              b.balance::float8 AS balance
+              lt.tracks_balance, u.manager_id AS request_manager_id
          FROM leave_requests r
          JOIN leave_types lt ON lt.id = r.leave_type_id
          JOIN users u ON u.id = r.user_id
-         LEFT JOIN leave_balances b
-                ON b.user_id = r.user_id AND b.leave_type_id = r.leave_type_id
         WHERE r.id = $1
         FOR UPDATE OF r`,
       [input.requestId],
@@ -283,19 +295,30 @@ export async function decideLeaveRequest(input: {
       throw new AppError("FORBIDDEN", "You can only act on your direct reports' requests", 403);
     }
 
+    const days = calculateBusinessDays(row.start_date, row.end_date);
+    let availableBalance: number | null = null;
+
     if (input.decision === "approved" && row.tracks_balance) {
-      const days = calculateBusinessDays(row.start_date, row.end_date);
-      if (row.balance === null) {
+      const balance = await client.query<{ balance: number }>(
+        `SELECT balance::float8 AS balance
+           FROM leave_balances
+          WHERE user_id = $1 AND leave_type_id = $2
+          FOR UPDATE`,
+        [row.user_id, row.leave_type_id],
+      );
+
+      if (!balance.rows[0]) {
         throw new AppError(
           "BALANCE_NOT_FOUND",
           "No leave balance record exists for this request; cannot approve without deducting",
           400,
         );
       }
-      if (row.balance < days) {
+      availableBalance = balance.rows[0].balance;
+      if (availableBalance < days) {
         throw new AppError(
           "INSUFFICIENT_BALANCE",
-          `Insufficient balance: ${row.balance} available, ${days} requested`,
+          `Insufficient balance: ${availableBalance} available, ${days} requested`,
           400,
         );
       }
@@ -309,13 +332,19 @@ export async function decideLeaveRequest(input: {
     );
 
     if (input.decision === "approved" && row.tracks_balance) {
-      const days = calculateBusinessDays(row.start_date, row.end_date);
-      await client.query(
+      const deduction = await client.query(
         `UPDATE leave_balances
             SET balance = balance - $1, updated_at = now()
-          WHERE user_id = $2 AND leave_type_id = $3`,
+          WHERE user_id = $2 AND leave_type_id = $3 AND balance >= $1`,
         [days, row.user_id, row.leave_type_id],
       );
+      if (deduction.rowCount === 0) {
+        throw new AppError(
+          "INSUFFICIENT_BALANCE",
+          `Insufficient balance: ${availableBalance} available, ${days} requested`,
+          400,
+        );
+      }
     }
 
     await client.query(
@@ -421,7 +450,8 @@ export async function accrueBalances(): Promise<number> {
           AND b.leave_type_id = p.leave_type_id
           AND p.accrual_per_month > 0
           AND (b.accrued_at IS NULL
-               OR date_trunc('month', b.accrued_at) <> date_trunc('month', now()))`,
+               OR to_char(b.accrued_at AT TIME ZONE 'UTC', 'YYYY-MM')
+                  <> to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM'))`,
     );
 
     await client.query("COMMIT");

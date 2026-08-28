@@ -5,7 +5,6 @@ import { findLeaveTypeById } from "@/lib/mock-data";
 import {
   createLeaveRequest,
   getBalanceInfo,
-  insertAuditLog,
   listLeaveTypes,
   listRequestsForUser,
   listTeamPendingRequests,
@@ -43,16 +42,11 @@ export async function POST(request: NextRequest) {
 
     const createdRequest = await createLeaveRequest({
       userId: session.userId,
+      actorId: session.userId,
       wireLeaveTypeId: data.leaveTypeId,
       startDate: data.startDate,
       endDate: data.endDate,
       reason: data.reason,
-    });
-
-    await insertAuditLog({
-      leaveRequestId: createdRequest.id,
-      actorId: session.userId,
-      action: "submitted",
     });
 
     return Response.json(
