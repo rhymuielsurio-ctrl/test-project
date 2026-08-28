@@ -21,6 +21,8 @@ interface DbUserRow {
   password_hash: string;
 }
 
+const DUMMY_PASSWORD_HASH = "$2b$10$4LUoAi6yFaBSdmkdGKdIjO/7eZI5aamELO2jeqy.IJ/xHuwGkMCa.";
+
 export const SESSION_COOKIE_NAME = "session";
 export const SESSION_MAX_AGE_SECONDS = 8 * 60 * 60; // 8 hours
 
@@ -43,8 +45,12 @@ export async function findUserByEmail(email: string): Promise<DbUserRow | null> 
   return rows[0] ?? null;
 }
 
-export async function verifyPassword(password: string, passwordHash: string): Promise<boolean> {
-  return bcrypt.compare(password, passwordHash);
+export async function verifyLoginPassword(
+  password: string,
+  user: Pick<DbUserRow, "password_hash"> | null,
+): Promise<boolean> {
+  const hash = user?.password_hash ?? DUMMY_PASSWORD_HASH;
+  return bcrypt.compare(password, hash);
 }
 
 export async function createSession(userId: string): Promise<{ token: string; expiresAt: Date }> {

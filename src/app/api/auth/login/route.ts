@@ -6,7 +6,7 @@ import {
   SESSION_MAX_AGE_SECONDS,
   createSession,
   findUserByEmail,
-  verifyPassword,
+  verifyLoginPassword,
 } from "@/lib/auth";
 import { isDatabaseConfigured } from "@/lib/db";
 
@@ -36,7 +36,8 @@ export async function POST(request: NextRequest) {
     }
 
     const user = await findUserByEmail(email);
-    if (!user || !(await verifyPassword(password, user.password_hash))) {
+    const passwordValid = await verifyLoginPassword(password, user);
+    if (!user || !passwordValid) {
       throw new AppError("UNAUTHORIZED", "Invalid email or password", 401);
     }
 
