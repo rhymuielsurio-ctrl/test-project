@@ -84,12 +84,46 @@ async function seedUser(account: SeedAccount): Promise<void> {
   );
 }
 
+async function seedLeaveDomain(): Promise<void> {
+  await pool.query(
+    `INSERT INTO leave_policies (user_id, leave_type_id, accrual_per_month)
+     SELECT u.id, lt.id, vals.accrual_per_month
+       FROM   (VALUES
+                 ('00000000-0000-0000-0000-000000000001'::uuid, 'vacation'::text, 1.25::numeric(4,2)),
+                 ('00000000-0000-0000-0000-000000000001', 'sick',     1.00),
+                 ('00000000-0000-0000-0000-000000000004', 'vacation', 1.25),
+                 ('00000000-0000-0000-0000-000000000004', 'sick',     1.00)
+               ) AS vals(user_id, code, accrual_per_month)
+       JOIN   users      u  ON u.id  = vals.user_id
+       JOIN   leave_types lt ON lt.code = vals.code
+     ON CONFLICT (user_id, leave_type_id) DO UPDATE
+       SET accrual_per_month = EXCLUDED.accrual_per_month`,
+  );
+
+  await pool.query(
+    `INSERT INTO leave_balances (user_id, leave_type_id, balance, updated_at, accrued_at)
+     SELECT u.id, lt.id, vals.balance, now(), NULL
+       FROM   (VALUES
+                 ('00000000-0000-0000-0000-000000000001'::uuid, 'vacation'::text, 10.00::numeric(5,2)),
+                 ('00000000-0000-0000-0000-000000000001', 'sick',     8.00),
+                 ('00000000-0000-0000-0000-000000000004', 'vacation',  5.00),
+                 ('00000000-0000-0000-0000-000000000004', 'sick',     12.00)
+               ) AS vals(user_id, code, balance)
+       JOIN   users      u  ON u.id  = vals.user_id
+       JOIN   leave_types lt ON lt.code = vals.code
+     ON CONFLICT (user_id, leave_type_id) DO NOTHING`,
+  );
+}
+
 async function seed() {
   console.log("Seeding auth accounts (users)...");
   for (const account of ACCOUNTS) {
     await seedUser(account);
     console.log(`  ✓ ${account.email} (${account.role})`);
   }
+  console.log("\nSeeding leave domain (policies + balances)...");
+  await seedLeaveDomain();
+  console.log("  ✓ leave_policies + leave_balances");
   console.log("\nSeed complete. Dev credentials:");
   for (const account of ACCOUNTS) {
     console.log(`  ${account.email} / ${account.devPassword}`);

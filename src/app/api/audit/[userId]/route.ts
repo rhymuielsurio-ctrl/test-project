@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
 import { requireAuth } from "@/lib/auth";
 import { AppError, handleApiError } from "@/lib/errors";
-import { MOCK_LEAVE_REQUESTS, MOCK_AUDIT_LOG, findUserById } from "@/lib/mock-data";
-import { loadMockState } from "@/lib/mock-state";
+import { listAuditReport, userExists } from "@/lib/leave-store";
 
 export async function GET(
   _request: NextRequest,
@@ -10,28 +9,14 @@ export async function GET(
 ) {
   try {
     await requireAuth(["hr_admin"]);
-    await loadMockState();
     const { userId } = await params;
 
-    const user = findUserById(userId);
-    if (!user) {
+    const exists = await userExists(userId);
+    if (!exists) {
       throw new AppError("NOT_FOUND", "User not found", 404);
     }
 
-    const requests = MOCK_LEAVE_REQUESTS.filter((r) => r.user_id === userId && !r.is_deleted).map(
-      (r) => ({
-        id: r.id,
-        leave_type_id: r.leave_type_id,
-        start_date: r.start_date,
-        end_date: r.end_date,
-        reason: r.reason,
-        status: r.status,
-        decided_by: r.decided_by,
-        decided_at: r.decided_at,
-        created_at: r.created_at,
-        auditEntries: MOCK_AUDIT_LOG.filter((a) => a.leave_request_id === r.id),
-      }),
-    );
+    const requests = await listAuditReport(userId);
 
     return Response.json({ success: true, data: { requests } }, { status: 200 });
   } catch (error) {
