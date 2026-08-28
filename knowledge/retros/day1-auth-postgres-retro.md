@@ -25,6 +25,16 @@ Login now verifies bcrypt hashes against `users`, issues random bearer tokens
   Postgres queries is follow-up work beyond auth.
 - `generateSessionToken()` is exported from `src/lib/auth.ts` but only consumed
   internally — can be made private on the next touch.
+- Git + GitHub this Windows workstation: Git itself was not installed (not on
+  PATH), `gh` CLI absent, and the GitHub MCP was unauthenticated. Initial
+  push used repo-local identity + Git Credential Manager's browser flow. Worth a
+  reusable setup note (knowledge/patterns or setup script) for future machines.
+- npm scripts (`db:migrate`, `db:setup`, `seed`) do not auto-load `.env` — dev
+  must export `DATABASE_URL` or inject it; consider a `dotenv`-style load or a
+  `.env.example` note on first-run UX.
+- `scripts/migrate.ts` ledger-before-file transaction ordering assumes every
+  migration file ends at its internal `COMMIT` (001/002 do). Enforce the
+  "one file = one BEGIN/COMMIT atom" rule in database-review checklist.
 
 ## Verdict
 
