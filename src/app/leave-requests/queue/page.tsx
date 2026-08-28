@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
   ManagerQueueTable,
   type EnrichedLeaveRequest,
@@ -49,9 +50,12 @@ export default function ManagerQueuePage() {
       if (!json.success) {
         throw new Error(json.error?.message ?? "Failed to approve request");
       }
+      toast.success("Request approved.");
       await fetchQueue();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setError(message);
+      toast.error(message);
     } finally {
       setProcessingId(null);
     }
@@ -82,9 +86,12 @@ export default function ManagerQueuePage() {
       if (!json.success) {
         throw new Error(json.error?.message ?? "Failed to reject request");
       }
+      toast.success("Request rejected.");
       await fetchQueue();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
+      const message = err instanceof Error ? err.message : "Unknown error";
+      setError(message);
+      toast.error(message);
     } finally {
       setProcessingId(null);
     }
@@ -97,45 +104,46 @@ export default function ManagerQueuePage() {
   if (loading) {
     return (
       <main className="mx-auto max-w-4xl px-4 py-8">
-        <h1 className="mb-6 text-xl font-bold text-slate-900">Manager Approval Queue</h1>
+        <h1 className="mb-6 text-2xl font-semibold tracking-tight">Manager Approval Queue</h1>
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
-            <div
-              key={i}
-              className="h-16 animate-pulse rounded-lg border border-slate-200 bg-slate-100"
-            />
+            <div key={i} className="h-16 animate-pulse rounded-lg border bg-muted" />
           ))}
         </div>
       </main>
     );
   }
 
-  if (error) {
+  if (error && requests.length === 0) {
     return (
       <main className="mx-auto max-w-4xl px-4 py-8">
-        <h1 className="mb-6 text-xl font-bold text-slate-900">Manager Approval Queue</h1>
-        <div className="rounded-md bg-error-bg p-4 text-sm text-error-text">{error}</div>
+        <h1 className="mb-6 text-2xl font-semibold tracking-tight">Manager Approval Queue</h1>
+        <div
+          className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive"
+          role="alert"
+        >
+          {error}
+        </div>
       </main>
     );
   }
 
   return (
     <main className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="mb-6 text-xl font-bold text-slate-900">Manager Approval Queue</h1>
+      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Manager Approval Queue</h1>
       <ManagerQueueTable
         requests={requests}
         processingId={processingId}
         onApprove={handleApprove}
         onReject={handleReject}
       />
-      {rejectModal.open && rejectModal.requestId && (
-        <RejectionModal
-          employeeName={rejectModal.employeeName}
-          onSubmit={handleRejectSubmit}
-          onClose={handleRejectClose}
-          processing={processingId !== null}
-        />
-      )}
+      <RejectionModal
+        open={rejectModal.open}
+        employeeName={rejectModal.employeeName}
+        onSubmit={handleRejectSubmit}
+        onClose={handleRejectClose}
+        processing={processingId !== null}
+      />
     </main>
   );
 }

@@ -4,6 +4,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { BriefcaseBusiness, Loader2, LockKeyhole, Mail } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -39,45 +49,67 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <h1 className="mb-8 text-center text-2xl font-bold text-slate-900">LeaveTrack</h1>
-        <div className="rounded-lg border border-slate-200 bg-white p-6 shadow-sm">
-          <h2 className="mb-4 text-sm font-medium text-slate-700">Sign in</h2>
+    <main className="bg-gradient-to-br from-primary/10 via-background to-background flex min-h-screen items-center justify-center px-4 py-8">
+      <Card className="w-full max-w-sm">
+        <CardHeader className="items-center text-center">
+          <div className="mb-2 flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm">
+            <BriefcaseBusiness className="size-5" />
+          </div>
+          <CardTitle className="text-xl">Welcome back</CardTitle>
+          <CardDescription>Sign in to manage your leave</CardDescription>
+        </CardHeader>
+        <CardContent>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <Input
-              type="email"
-              label="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              required
-            />
-            <Input
-              type="password"
-              label="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="current-password"
-              required
-            />
+            <div className="grid gap-2">
+              <Label htmlFor="email">Email</Label>
+              <div className="relative">
+                <Mail className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" />
+                <Input
+                  id="email"
+                  type="email"
+                  className="pl-8"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  required
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <LockKeyhole className="pointer-events-none absolute top-2 left-2.5 size-4 text-muted-foreground" />
+                <Input
+                  id="password"
+                  type="password"
+                  className="pl-8"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+            </div>
             {error && (
               <div
-                className="rounded-md border border-error bg-error-bg p-3 text-sm text-error-text"
+                className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-destructive"
                 role="alert"
               >
                 {error}
               </div>
             )}
-            <Button type="submit" loading={loading} className="w-full">
-              Sign In
+            <Button type="submit" disabled={loading} className="mt-2 w-full">
+              {loading && <Loader2 className="animate-spin" />}
+              {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-        </div>
-        <p className="mt-4 text-center text-xs text-slate-500">
+        </CardContent>
+        <CardFooter className="justify-center text-xs text-muted-foreground">
           Authenticated against the Postgres database.
-        </p>
-      </div>
+        </CardFooter>
+      </Card>
     </main>
   );
 }

@@ -1,10 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { format } from "date-fns";
+import type { DateRange } from "react-day-picker";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { CalendarIcon, Loader2 } from "lucide-react";
 import { MOCK_LEAVE_TYPES } from "@/lib/mock-data";
 
 interface SubmitResult {
@@ -26,121 +38,120 @@ const leaveTypeOptions = MOCK_LEAVE_TYPES.map((lt) => ({
   label: lt.name,
 }));
 
+function toDateInputValue(date: Date | undefined): string {
+  return date ? format(date, "yyyy-MM-dd") : "";
+}
+
 export function LeaveRequestForm({ onSubmit }: LeaveRequestFormProps) {
   const [leaveTypeId, setLeaveTypeId] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [warning, setWarning] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setError(null);
-    setWarning(null);
     setSubmitting(true);
 
     try {
-      const result = await onSubmit({ leaveTypeId, startDate, endDate, reason });
-      if (result.warning) {
-        setWarning(result.warning);
+      const endDate = dateRange?.to ?? dateRange?.from;
+      if (!dateRange?.from || !endDate) {
+        toast.error("Please pick the dates you want to take leave.");
+        return;
       }
-      setSuccess(true);
+      const result = await onSubmit({
+        leaveTypeId,
+        startDate: toDateInputValue(dateRange.from),
+        endDate: toDateInputValue(endDate),
+        reason,
+      });
+      if (result.warning) {
+        toast.warning(result.warning);
+      } else {
+        toast.success("Your leave request has been submitted.");
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Submission failed";
-      setError(message);
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }
   }
 
-  if (success) {
-    return (
-      <div className="rounded-lg border border-success bg-success-bg p-6 text-center">
-        <h3 className="text-lg font-semibold text-success-text">Request Submitted</h3>
-        <p className="mt-2 text-sm text-success-text">
-          Your leave request has been submitted and is pending manager approval.
-        </p>
-        <Button
-          variant="secondary"
-          className="mt-4"
-          onClick={() => {
-            setSuccess(false);
-            setLeaveTypeId("");
-            setStartDate("");
-            setEndDate("");
-            setReason("");
-            setWarning(null);
-          }}
-        >
-          Submit Another Request
-        </Button>
-      </div>
-    );
-  }
+  const fromDate = dateRange?.from;
+  const toDate = dateRange?.to ?? fromDate;
+  const hasRange = Boolean(fromDate);
+  const rangeLabel = fromDate
+    ? format(fromDate, "MMM d, yyyy") +
+      (toDate && fromDate.getTime() !== toDate.getTime()
+        ? ` — ${format(toDate, "MMM d, yyyy")}`
+        : "")
+    : "";
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      <Select
-        label="Leave Type"
-        options={leaveTypeOptions}
-        placeholder="Select a leave type"
-        value={leaveTypeId}
-        onChange={(e) => setLeaveTypeId(e.target.value)}
-        required
-      />
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      <div className="grid gap-2">
+        <Label htmlFor="leave-type">Leave Type</Label>
+        <Select value={leaveTypeId} onValueChange={setLeaveTypeId} required>
+          <SelectTrigger id="leave-type" className="w-full">
+            <SelectValue placeholder="Select a leave type" />
+          </SelectTrigger>
+          <SelectContent>
+            {leaveTypeOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <Input
-          label="Start Date"
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          required
-        />
-        <Input
-          label="End Date"
-          type="date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
+      <div className="grid gap-2">
+        <Label htmlFor="date-range">Requested Dates</Label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              id="date-range"
+              className="justify-start gap-2 text-left font-normal"
+            >
+              <CalendarIcon className="size-4" />
+              {hasRange ? rangeLabel : <span>Pick a date range</span>}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="range"
+              selected={dateRange}
+              onSelect={setDateRange}
+              numberOfMonths={2}
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      <div className="grid gap-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="reason">Reason</Label>
+          <span className="text-xs text-muted-foreground tabular-nums">{reason.length}/500</span>
+        </div>
+        <Textarea
+          id="reason"
+          rows={3}
+          maxLength={500}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="Brief reason for your leave request"
           required
         />
       </div>
 
-      <Textarea
-        label="Reason"
-        rows={3}
-        maxLength={500}
-        value={reason}
-        onChange={(e) => setReason(e.target.value)}
-        placeholder="Brief reason for your leave request"
-        required
-      />
-      <p className="text-xs text-slate-500">{reason.length}/500 characters</p>
-
-      {error && (
-        <div
-          className="rounded-md border border-error bg-error-bg p-3 text-sm text-error-text"
-          role="alert"
-        >
-          {error}
-        </div>
-      )}
-
-      {warning && (
-        <div
-          className="rounded-md border border-warning bg-warning-bg p-3 text-sm text-warning-text"
-          role="status"
-        >
-          {warning}
-        </div>
-      )}
-
-      <Button type="submit" loading={submitting} className="w-full sm:w-auto">
-        Submit Request
-      </Button>
+      <div>
+        <Button type="submit" disabled={submitting} className="w-full sm:w-auto">
+          {submitting && <Loader2 className="animate-spin" />}
+          {submitting ? "Submitting..." : "Submit Request"}
+        </Button>
+      </div>
     </form>
   );
 }

@@ -1,3 +1,5 @@
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 export interface LeaveBalanceCardProps {
   leaveTypeName: string;
   confirmed: number;
@@ -12,26 +14,24 @@ export function LeaveBalanceCard({
   remaining,
 }: LeaveBalanceCardProps) {
   return (
-    <div
-      className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
-      role="region"
-      aria-label={`${leaveTypeName} balance`}
-    >
-      <h3 className="mb-3 text-sm font-semibold text-slate-700">{leaveTypeName}</h3>
-      <div className="flex flex-col gap-2 sm:flex-row sm:gap-4">
-        <Stat label="Confirmed" value={confirmed} color="text-success-text" />
-        <Stat label="Pending" value={pendingDays} color="text-warning-text" />
+    <Card aria-label={`${leaveTypeName} balance`}>
+      <CardHeader className="pb-1">
+        <CardTitle className="text-sm font-medium text-muted-foreground">{leaveTypeName}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-wrap gap-x-10 gap-y-4">
+        <Stat label="Confirmed" value={confirmed} color="text-emerald-600" />
+        <Stat label="Pending" value={pendingDays} color="text-amber-600" />
         <Stat label="Remaining" value={remaining} color="text-primary" />
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
 function Stat({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div className="flex-1">
-      <p className="text-xs text-slate-500">{label}</p>
-      <p className={`text-lg font-bold ${color}`}>{value}</p>
+    <div>
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className={`text-2xl font-semibold tabular-nums ${color}`}>{value}</p>
     </div>
   );
 }
