@@ -91,3 +91,20 @@ same `NavLinks` with the server-passed `role`, one declarative array gates every
 surface. Important: the nav link controls **visibility only** — authorization
 still lives server-side in the route handler (`requireAuth([...])`), so a
 non-permitted user who navigates directly is still rejected.
+
+## Data depth: use the server edge for live rosters too (audit page, 2026-08-29)
+
+The same server-edge/client-leaf split applies to PAGES that need LIVE data:
+the audit page originally rendered its employee dropdown from the STATIC
+`MOCK_USERS` array ("mirrors the seeded DB"), so every user created via
+register was invisible to HR audit — and the timeline resolved actor names
+("Decided by …") from the same stale mirror. Fix (apply it as a rule):
+
+- Server page (`force-dynamic`, `getMockSession` role-checks + `redirect`)
+  queries the DB (`listUsersForAudit`) and passes plain `{ id, name }[]` down.
+- Client leaf builds the dropdown AND the name→label map for the timeline from
+  that single prop. No client-side re-fetch, no duplicated query.
+- Lesson: any "mirror of the DB" kept as a dev constant rots the moment writes
+  (register, manager reassignment) exist. If the page renders data that can
+  be written at runtime, pull it from the same store the writes go to — a
+  static mirror is only safe on Day 0 with no write paths.

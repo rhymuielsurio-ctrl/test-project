@@ -45,8 +45,9 @@ export interface BalanceInfo {
 
 /**
  * Static dev roster (uuid 0000...0001..0004), mirroring the users seeded by
- * supabase/migrations/002_auth_users.sql. Used by the audit page for the
- * employee dropdown; the API endpoints resolve users from Postgres.
+ * supabase/migrations/002_auth_users.sql. The audit page now queries the
+ * live users table (listUsersForAudit) instead of this array; it remains
+ * exported for participating dev-only consumers (e.g. findUserById).
  */
 export const MOCK_USERS: DbUser[] = [
   {
