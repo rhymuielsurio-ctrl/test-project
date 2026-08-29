@@ -32,6 +32,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       requestId: id,
       actorId: session.userId,
       decision: body.decision,
+      rejectReason: body.reason?.trim() ?? null,
     });
 
     return Response.json({ success: true, data: { request: updatedRequest } }, { status: 200 });

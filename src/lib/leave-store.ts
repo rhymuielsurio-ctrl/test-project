@@ -249,6 +249,7 @@ export async function decideLeaveRequest(input: {
   requestId: string;
   actorId: string;
   decision: "approved" | "rejected";
+  rejectReason?: string | null;
 }): Promise<DbLeaveRequest> {
   const client = await getPool().connect();
 
@@ -348,9 +349,14 @@ export async function decideLeaveRequest(input: {
     }
 
     await client.query(
-      `INSERT INTO audit_log (leave_request_id, actor_id, action)
-       VALUES ($1, $2, $3)`,
-      [input.requestId, input.actorId, input.decision],
+      `INSERT INTO audit_log (leave_request_id, actor_id, action, details)
+       VALUES ($1, $2, $3, $4)`,
+      [
+        input.requestId,
+        input.actorId,
+        input.decision,
+        input.decision === "rejected" ? (input.rejectReason ?? null) : null,
+      ],
     );
 
     await client.query("COMMIT");
@@ -383,13 +389,15 @@ export async function listAuditReport(userId: string): Promise<AuditReportReques
     audit_id: string | null;
     audit_actor_id: string | null;
     audit_action: string | null;
+    audit_details: string | null;
     audit_occurred_at: Date | null;
   }>(
     `SELECT r.id, lt.code AS leave_type_code,
             r.start_date::text AS start_date, r.end_date::text AS end_date,
             r.reason, r.status, r.decided_by, r.decided_at, r.created_at,
             a.id AS audit_id, a.actor_id AS audit_actor_id,
-            a.action AS audit_action, a.occurred_at AS audit_occurred_at
+            a.action AS audit_action, a.details AS audit_details,
+            a.occurred_at AS audit_occurred_at
        FROM leave_requests r
        JOIN leave_types lt ON lt.id = r.leave_type_id
        LEFT JOIN audit_log a ON a.leave_request_id = r.id
@@ -422,6 +430,7 @@ export async function listAuditReport(userId: string): Promise<AuditReportReques
         leave_request_id: row.id,
         actor_id: row.audit_actor_id ?? "",
         action: row.audit_action ?? "",
+        details: row.audit_details ?? null,
         occurred_at:
           row.audit_occurred_at instanceof Date
             ? row.audit_occurred_at.toISOString()

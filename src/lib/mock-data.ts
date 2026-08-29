@@ -33,6 +33,7 @@ export interface DbAuditLog {
   leave_request_id: string;
   actor_id: string;
   action: string;
+  details: string | null;
   occurred_at: string;
 }
 
