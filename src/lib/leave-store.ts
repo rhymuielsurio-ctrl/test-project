@@ -1,4 +1,5 @@
 import { getPool } from "@/lib/db";
+import type { Pool } from "pg";
 import { AppError } from "@/lib/errors";
 import type { UserRole } from "@/lib/auth";
 import {
@@ -7,8 +8,6 @@ import {
   type DbAuditLog,
   type DbLeaveRequest,
 } from "@/lib/mock-data";
-
-export const OVERBALANCE_ALLOWANCE_DAYS = 7;
 
 export interface LeaveTypeRow {
   id: string;
@@ -187,6 +186,287 @@ export async function createLeaveRequest(input: {
   }
 }
 
+export interface SplitRange {
+  start: string;
+  end: string;
+}
+
+export interface SplitLeaveResult {
+  paid: SplitRange | null;
+  unpaid: SplitRange | null;
+}
+
+function isWeekend(date: Date): boolean {
+  const day = date.getDay();
+  return day === 0 || day === 6;
+}
+
+function dateOnly(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
+function nextBusinessDay(date: Date): Date {
+  const next = new Date(date);
+  next.setDate(next.getDate() + 1);
+  while (isWeekend(next)) {
+    next.setDate(next.getDate() + 1);
+  }
+  return next;
+}
+
+function nthBusinessDay(start: Date, n: number): Date {
+  const current = new Date(start);
+  let seen = 0;
+  while (seen < n) {
+    if (!isWeekend(current)) seen++;
+    if (seen < n) current.setDate(current.getDate() + 1);
+  }
+  return current;
+}
+
+export function splitLeaveRange(input: {
+  startDate: string;
+  endDate: string;
+  remaining: number;
+}): SplitLeaveResult {
+  const paidDays = Math.floor(Math.max(0, input.remaining));
+  const requestedDays = calculateBusinessDays(input.startDate, input.endDate);
+
+  if (requestedDays <= paidDays) {
+    return { paid: null, unpaid: null };
+  }
+  if (paidDays === 0) {
+    return { paid: null, unpaid: { start: input.startDate, end: input.endDate } };
+  }
+
+  const paidEnd = nthBusinessDay(new Date(input.startDate), paidDays);
+  const unpaidStart = nextBusinessDay(paidEnd);
+
+  return {
+    paid: { start: input.startDate, end: dateOnly(paidEnd) },
+    unpaid: { start: dateOnly(unpaidStart), end: input.endDate },
+  };
+}
+
+export interface CreateSplitResult {
+  requests: DbLeaveRequest[];
+  split: boolean;
+}
+
+export async function createLeaveRequestWithSplit(input: {
+  userId: string;
+  wireLeaveTypeId: string;
+  startDate: string;
+  endDate: string;
+  reason: string;
+  actorId: string;
+}): Promise<CreateSplitResult> {
+  const code = input.wireLeaveTypeId.replace(/^lt-/, "");
+  const client = await getPool().connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const type = await client.query<LeaveTypeRow>(
+      `SELECT id, code, name, tracks_balance FROM leave_types WHERE code = $1`,
+      [code],
+    );
+    if (!type.rows[0]) {
+      throw new AppError("VALIDATION_ERROR", "Invalid leave type");
+    }
+
+    const requestedDays = calculateBusinessDays(input.startDate, input.endDate);
+    let validated: SplitLeaveResult | null = null;
+
+    if (type.rows[0].tracks_balance) {
+      const balance = await client.query<{ balance: number }>(
+        `SELECT COALESCE(b.balance, 0)::float8 AS balance
+           FROM leave_balances b
+           JOIN leave_types lt ON lt.id = b.leave_type_id
+          WHERE b.user_id = $1 AND lt.code = $2
+          FOR UPDATE`,
+        [input.userId, code],
+      );
+      const confirmed = balance.rows[0]?.balance ?? 0;
+
+      const pending = await client.query<{ start_date: string; end_date: string }>(
+        `SELECT r.start_date::text AS start_date, r.end_date::text AS end_date
+           FROM leave_requests r
+           JOIN leave_types lt ON lt.id = r.leave_type_id
+          WHERE r.user_id = $1
+            AND lt.code = $2
+            AND r.status = 'pending'
+            AND NOT r.is_deleted`,
+        [input.userId, code],
+      );
+      const pendingDays = pending.rows.reduce(
+        (sum, row) => sum + calculateBusinessDays(row.start_date, row.end_date),
+        0,
+      );
+      const remainingLive = confirmed - pendingDays;
+
+      if (requestedDays > remainingLive) {
+        validated = splitLeaveRange({
+          startDate: input.startDate,
+          endDate: input.endDate,
+          remaining: remainingLive,
+        });
+      }
+    }
+
+    const split = validated !== null;
+
+    const segments: { code: string; start: string; end: string }[] = [];
+    if (split) {
+      if (validated!.paid) {
+        segments.push({ code, start: validated!.paid.start, end: validated!.paid.end });
+      }
+      if (validated!.unpaid) {
+        segments.push({
+          code: "unpaid",
+          start: validated!.unpaid.start,
+          end: validated!.unpaid.end,
+        });
+      }
+    } else {
+      segments.push({ code, start: input.startDate, end: input.endDate });
+    }
+
+    const unpaidType = await client.query<{ id: string }>(
+      `SELECT id FROM leave_types WHERE code = 'unpaid'`,
+    );
+    if (!unpaidType.rows[0]) {
+      throw new AppError("CONFIGURATION_ERROR", "Unpaid leave type is not configured", 500);
+    }
+
+    const requests: DbLeaveRequest[] = [];
+    for (const segment of segments) {
+      const leaveTypeId = segment.code === "unpaid" ? unpaidType.rows[0].id : type.rows[0].id;
+      const created = await client.query<{
+        id: string;
+        user_id: string;
+        start_date: string;
+        end_date: string;
+        reason: string;
+        status: string;
+        created_at: Date;
+      }>(
+        `INSERT INTO leave_requests (user_id, leave_type_id, start_date, end_date, reason)
+         VALUES ($1, $2, $3::date, $4::date, $5)
+         RETURNING id, user_id, start_date::text AS start_date, end_date::text AS end_date,
+                   reason, status, created_at`,
+        [input.userId, leaveTypeId, segment.start, segment.end, input.reason],
+      );
+      await client.query(
+        `INSERT INTO audit_log (leave_request_id, actor_id, action)
+         VALUES ($1, $2, 'submitted')`,
+        [created.rows[0].id, input.actorId],
+      );
+      requests.push(
+        toWireLeaveRequest({
+          ...created.rows[0],
+          leave_type_code: segment.code,
+          decided_by: null,
+          decided_at: null,
+          is_deleted: false,
+        }),
+      );
+    }
+
+    let message: string;
+    if (split) {
+      const paidCount = validated!.paid
+        ? calculateBusinessDays(validated!.paid.start, validated!.paid.end)
+        : 0;
+      const unpaidCount = validated!.unpaid
+        ? calculateBusinessDays(validated!.unpaid.start, validated!.unpaid.end)
+        : 0;
+      message =
+        paidCount > 0
+          ? `Requested ${requestedDays} days exceeded your balance, so it was filed as ${paidCount} day(s) of ${type.rows[0].name} and ${unpaidCount} day(s) of Unpaid.`
+          : `Requested ${requestedDays} days exceeded your balance, so the full ${unpaidCount} day(s) were filed as Unpaid.`;
+    } else {
+      message = "";
+    }
+
+    await client.query("COMMIT");
+
+    if (split) {
+      try {
+        await insertNotification(
+          getPool(),
+          input.userId,
+          "Leave split into Paid and Unpaid",
+          message,
+        );
+      } catch (notificationError) {
+        console.error("[leave] split notification skipped (best-effort):", notificationError);
+      }
+    }
+
+    return { requests, split };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export interface NotificationItem {
+  id: string;
+  title: string;
+  message: string;
+  read_at: string | null;
+  created_at: string;
+}
+
+async function insertNotification(
+  pool: { query: Pool["query"] },
+  userId: string,
+  title: string,
+  message: string,
+): Promise<void> {
+  await pool.query(`INSERT INTO notifications (user_id, title, message) VALUES ($1, $2, $3)`, [
+    userId,
+    title,
+    message,
+  ]);
+}
+
+export async function listNotificationsForUser(userId: string): Promise<{
+  items: NotificationItem[];
+  unreadCount: number;
+}> {
+  const items = await getPool().query<NotificationItem>(
+    `SELECT id, title, message, read_at::text AS read_at, created_at::text AS created_at
+       FROM notifications
+      WHERE user_id = $1
+      ORDER BY read_at NULLS FIRST, created_at DESC
+      LIMIT 20`,
+    [userId],
+  );
+  const unread = await getPool().query<{ count: string }>(
+    `SELECT COUNT(*)::text AS count
+       FROM notifications
+      WHERE user_id = $1 AND read_at IS NULL`,
+    [userId],
+  );
+  return { items: items.rows, unreadCount: Number(unread.rows[0]?.count ?? 0) };
+}
+
+export async function markNotificationRead(id: string, userId: string): Promise<void> {
+  const result = await getPool().query(
+    `UPDATE notifications SET read_at = now() WHERE id = $1 AND user_id = $2`,
+    [id, userId],
+  );
+  if (result.rowCount === 0) {
+    throw new AppError("NOT_FOUND", "Notification not found", 404);
+  }
+}
+
 export async function listRequestsForUser(userId: string): Promise<MyLeaveRequest[]> {
   const { rows } = await getPool().query<{
     id: string;
@@ -333,10 +613,10 @@ export async function decideLeaveRequest(input: {
         );
       }
       availableBalance = balance.rows[0].balance;
-      if (availableBalance + OVERBALANCE_ALLOWANCE_DAYS < days) {
+      if (availableBalance < days) {
         throw new AppError(
           "INSUFFICIENT_BALANCE",
-          `Insufficient balance: ${availableBalance} available, ${days} requested (max overage ${OVERBALANCE_ALLOWANCE_DAYS} days)`,
+          `Insufficient balance: ${availableBalance} available, ${days} requested`,
           400,
         );
       }
@@ -353,13 +633,13 @@ export async function decideLeaveRequest(input: {
       const deduction = await client.query(
         `UPDATE leave_balances
             SET balance = balance - $1, updated_at = now()
-          WHERE user_id = $2 AND leave_type_id = $3 AND balance >= $1 - $4`,
-        [days, row.user_id, row.leave_type_id, OVERBALANCE_ALLOWANCE_DAYS],
+          WHERE user_id = $2 AND leave_type_id = $3 AND balance >= $1`,
+        [days, row.user_id, row.leave_type_id],
       );
       if (deduction.rowCount === 0) {
         throw new AppError(
           "INSUFFICIENT_BALANCE",
-          `Insufficient balance: ${availableBalance} available, ${days} requested (max overage ${OVERBALANCE_ALLOWANCE_DAYS} days)`,
+          `Insufficient balance: ${availableBalance} available, ${days} requested`,
           400,
         );
       }
@@ -507,6 +787,21 @@ export async function updateEmployeeManager(id: string, managerId: string | null
   }
 
   await getPool().query(`UPDATE users SET manager_id = $2 WHERE id = $1`, [id, managerId]);
+}
+
+export interface AuditUserRow {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  manager_id: string | null;
+}
+
+export async function listUsersForAudit(): Promise<AuditUserRow[]> {
+  const { rows } = await getPool().query<AuditUserRow>(
+    `SELECT id, name, email, role, manager_id FROM users ORDER BY name`,
+  );
+  return rows;
 }
 
 export async function accrueBalances(): Promise<number> {

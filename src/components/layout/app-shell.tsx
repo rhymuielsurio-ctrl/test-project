@@ -2,6 +2,7 @@ import { getMockSession } from "@/lib/auth";
 import { NavLinks } from "./nav-links";
 import { MobileNav } from "./mobile-nav";
 import { LogoutButton } from "./logout-button";
+import { NotificationsPopover } from "@/components/features/notifications-popover";
 import { BriefcaseBusiness } from "lucide-react";
 
 function initialOf(name: string): string {
@@ -38,7 +39,10 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <span className="truncate text-sm font-medium">{name}</span>
           </div>
-          <LogoutButton />
+          <div className="flex items-center gap-1">
+            {session && <NotificationsPopover />}
+            <LogoutButton />
+          </div>
         </div>
       </aside>
 
@@ -50,7 +54,10 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             </span>
             <span className="text-lg font-semibold tracking-tight text-primary">LeaveTrack</span>
           </div>
-          <MobileNav role={role} name={name} />
+          <div className="flex items-center gap-1">
+            {session && <NotificationsPopover />}
+            <MobileNav role={role} name={name} />
+          </div>
         </header>
         {children}
       </div>

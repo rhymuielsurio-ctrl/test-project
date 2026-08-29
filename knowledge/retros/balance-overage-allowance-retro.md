@@ -1,5 +1,11 @@
 # Retro — Over-balance allowance (+7 days) on approval
 
+> SUPERSEDED 2026-08-29 by the paid/unpaid auto-split (see below). The
+> allowance mechanism and its `OVERBALANCE_ALLOWANCE_DAYS` constant were
+> REMOVED — with auto-split the paid segment can never exceed balance
+> (paidDays = floor(remaining)), so the +7-day approval relaxation is
+> unnecessary. Section "Behavior now" describes the reverted interim state.
+
 Date: 2026-08-29
 Scope: `src/lib/leave-store.ts`, `src/app/api/leave-requests/route.ts`
 
