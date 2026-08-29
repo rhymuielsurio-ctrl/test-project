@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { AppNav } from "@/components/layout/app-nav";
-import { Navbar } from "@/components/layout/navbar";
+import { AppShell } from "@/components/layout/app-shell";
 import { Toaster } from "@/components/ui/sonner";
 import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
@@ -17,10 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className={cn("font-sans", geist.variable)}>
       <body className="bg-muted/40 text-foreground antialiased">
-        <AppNav>
-          <Navbar />
-        </AppNav>
-        {children}
+        <AppNav shell={<AppShell>{children}</AppShell>}>{children}</AppNav>
         <Toaster richColors position="bottom-right" />
       </body>
     </html>

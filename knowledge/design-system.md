@@ -10,9 +10,9 @@ support.
 > **Implementer's note:** earlier versions of this doc described tokens and
 > primitives that were never built (HSL `brand-*` palette, `FormField`,
 > `ui/card`, `ui/table`, `ui/skeleton`, `ui/empty-state`, `ui/error-state`,
-> a sidebar `app-shell`, an `icons/index.tsx` barrel, and `shadow-*`/`radius-*`
-> theme tokens). Those remain aspirational and are **not implemented** — do not
-> code against them. This section lists only what actually exists.
+> an `icons/index.tsx` barrel, and `shadow-*`/`radius-*` theme tokens). Those
+> remain aspirational and are **not implemented** — do not code against them.
+> This section lists only what actually exists.
 
 ## Color — brand (hex)
 
@@ -78,10 +78,12 @@ Tables are **feature** components, not shared primitives:
 ## Layout
 
 - **Mobile-first.** Critical breakpoint 375px (BR-05/US-06): no horizontal scroll.
-- Global chrome is a **top navigation bar** (`src/components/layout/navbar.tsx`)
-  with a `next/link` link row (`nav-links.tsx`) and a mobile hamburger drawer
-  (`mobile-nav.tsx`). Desktop link row hides below `md` (768px); the drawer takes
-  over, sliding in from the right with a dimming backdrop.
+- Global chrome is a **persistent left sidebar** (`src/components/layout/app-shell.tsx`)
+  from `md` (768px) up: fixed 256px rail holding the brand, a vertical `next/link`
+  row (`nav-links.tsx`), and a foot with the profile initial + LogoutButton. Below
+  `md` the site keeps a slim top bar (brand + hamburger) and the nav moves into a
+  left slide-in drawer (`mobile-nav.tsx`) with a session footer.
+- `app-nav.tsx` hides the whole shell on public routes (`/login`).
 - Page max-width: `max-w-2xl` (forms), `max-w-4xl`/`max-w-5xl` (tables).
 
 ## Iconography

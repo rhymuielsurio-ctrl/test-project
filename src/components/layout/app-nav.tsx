@@ -2,8 +2,13 @@
 
 import { usePathname } from "next/navigation";
 
-export function AppNav({ children }: { children: React.ReactNode }) {
+interface AppNavProps {
+  shell: React.ReactNode;
+  children: React.ReactNode;
+}
+
+export function AppNav({ shell, children }: AppNavProps) {
   const pathname = usePathname();
-  if (pathname === "/login") return null;
-  return <>{children}</>;
+  if (pathname === "/login") return <>{children}</>;
+  return <>{shell}</>;
 }
