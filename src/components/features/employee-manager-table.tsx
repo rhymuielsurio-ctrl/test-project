@@ -86,7 +86,7 @@ export function EmployeeManagerTable({ employees }: EmployeeManagerTableProps) {
         </TableHeader>
         <TableBody>
           {employeeRows.map((employee) => {
-            const value = employee.manager_id ?? "";
+            const value = employee.manager_id ?? NO_MANAGER;
             return (
               <TableRow key={employee.id}>
                 <TableCell className="font-medium">{employee.name}</TableCell>
