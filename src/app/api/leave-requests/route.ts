@@ -4,11 +4,11 @@ import { AppError, handleApiError } from "@/lib/errors";
 import { findLeaveTypeById } from "@/lib/mock-data";
 import {
   createLeaveRequest,
+  createLeaveRequestWithSplit,
   getBalanceInfo,
   listLeaveTypes,
   listRequestsForUser,
   listTeamPendingRequests,
-  OVERBALANCE_ALLOWANCE_DAYS,
 } from "@/lib/leave-store";
 import { validateLeaveRequest, type LeaveRequestInput } from "@/lib/validators";
 
@@ -36,27 +36,41 @@ export async function POST(request: NextRequest) {
       const balance = await getBalanceInfo(session.userId, data.leaveTypeId);
       if (data.requestedDays > balance.remaining) {
         const overage = data.requestedDays - balance.remaining;
-        warning =
-          overage > OVERBALANCE_ALLOWANCE_DAYS
-            ? `Requested ${data.requestedDays} days exceeds your remaining balance of ${balance.remaining} days by ${overage} days, beyond the ${OVERBALANCE_ALLOWANCE_DAYS}-day allowance. Manager approval may be refused.`
-            : `Requested ${data.requestedDays} days exceeds your remaining balance of ${balance.remaining} days by ${overage} days, within the ${OVERBALANCE_ALLOWANCE_DAYS}-day allowance.`;
+        warning = `Your request exceeds your remaining balance of ${balance.remaining} days by ${overage} day(s); it will be split and filed partly as unpaid.`;
       }
     }
 
-    const createdRequest = await createLeaveRequest({
-      userId: session.userId,
-      actorId: session.userId,
-      wireLeaveTypeId: data.leaveTypeId,
-      startDate: data.startDate,
-      endDate: data.endDate,
-      reason: data.reason,
-    });
+    let requests: { id: string }[];
+    let split = false;
+    if (leaveType?.tracks_balance) {
+      const result = await createLeaveRequestWithSplit({
+        userId: session.userId,
+        actorId: session.userId,
+        wireLeaveTypeId: data.leaveTypeId,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        reason: data.reason,
+      });
+      requests = result.requests;
+      split = result.split;
+    } else {
+      const createdRequest = await createLeaveRequest({
+        userId: session.userId,
+        actorId: session.userId,
+        wireLeaveTypeId: data.leaveTypeId,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        reason: data.reason,
+      });
+      requests = [createdRequest];
+    }
 
     return Response.json(
       {
         success: true,
         data: {
-          request: createdRequest,
+          requests,
+          split,
           ...(warning ? { warning } : {}),
         },
       },

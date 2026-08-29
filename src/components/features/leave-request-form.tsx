@@ -20,7 +20,8 @@ import { CalendarIcon, Loader2 } from "lucide-react";
 import { MOCK_LEAVE_TYPES } from "@/lib/mock-data";
 
 interface SubmitResult {
-  request: { id: string };
+  requests: { id: string }[];
+  split?: boolean;
   warning?: string;
 }
 
@@ -66,6 +67,8 @@ export function LeaveRequestForm({ onSubmit }: LeaveRequestFormProps) {
       });
       if (result.warning) {
         toast.warning(result.warning);
+      } else if (result.split) {
+        toast.info("Your request exceeded your balance and was split into paid and unpaid.");
       } else {
         toast.success("Your leave request has been submitted.");
       }
