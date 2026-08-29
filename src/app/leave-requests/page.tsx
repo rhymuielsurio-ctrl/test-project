@@ -4,14 +4,7 @@ import { useEffect, useState } from "react";
 import { StatusBadge } from "@/components/features/status-badge";
 import { LeaveBalanceCard } from "@/components/features/leave-balance-card";
 import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarPlus } from "lucide-react";
 import Link from "next/link";
 import type { DbLeaveRequest } from "@/lib/mock-data";
@@ -59,20 +52,21 @@ export default function LeaveBalancePage() {
 
   if (loading) {
     return (
-      <main className="mx-auto max-w-2xl px-4 py-8">
+      <main className="px-4 py-8 sm:px-6">
         <h1 className="mb-6 text-2xl font-semibold tracking-tight">My Leave Balance</h1>
-        <div className="space-y-4">
-          {[1, 2].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-lg border bg-muted" />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="h-32 animate-pulse rounded-lg border bg-muted" />
           ))}
         </div>
+        <div className="mt-8 h-48 animate-pulse rounded-lg border bg-muted" />
       </main>
     );
   }
 
   if (error) {
     return (
-      <main className="mx-auto max-w-2xl px-4 py-8">
+      <main className="px-4 py-8 sm:px-6">
         <h1 className="mb-6 text-2xl font-semibold tracking-tight">My Leave Balance</h1>
         <div
           className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive"
@@ -85,7 +79,7 @@ export default function LeaveBalancePage() {
   }
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-8">
+    <main className="px-4 py-8 sm:px-6">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight">My Leave Balance</h1>
         <Button asChild size="sm">
@@ -100,7 +94,7 @@ export default function LeaveBalancePage() {
         <>
           <section className="mb-8">
             <h2 className="mb-3 text-sm font-medium text-muted-foreground">Available Balances</h2>
-            <div className="space-y-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {data.balances
                 .filter((b) => b.leaveType.tracksBalance)
                 .map((b) => (
@@ -118,36 +112,28 @@ export default function LeaveBalancePage() {
           {data.requests.length > 0 && (
             <section>
               <h2 className="mb-3 text-sm font-medium text-muted-foreground">My Requests</h2>
-              <div className="overflow-hidden rounded-lg border bg-card">
-                <Table aria-label="Leave requests">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Dates</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Reason</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {data.requests.map((r) => (
-                      <TableRow key={r.id}>
-                        <TableCell>
-                          {data.balances.find((b) => b.leaveType.id === r.leave_type_id)?.leaveType
-                            .name ?? r.leave_type_id}
-                        </TableCell>
-                        <TableCell className="whitespace-nowrap tabular-nums">
-                          {r.start_date} — {r.end_date}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={r.status} />
-                        </TableCell>
-                        <TableCell className="max-w-40 truncate text-muted-foreground">
+              <div className="flex flex-col gap-3">
+                {data.requests.map((r) => (
+                  <Card key={r.id}>
+                    <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">
+                        {data.balances.find((b) => b.leaveType.id === r.leave_type_id)?.leaveType
+                          .name ?? r.leave_type_id}
+                      </CardTitle>
+                      <StatusBadge status={r.status} />
+                    </CardHeader>
+                    <CardContent>
+                      <CardDescription className="text-sm tabular-nums">
+                        {r.start_date} — {r.end_date}
+                      </CardDescription>
+                      {r.reason && (
+                        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                           {r.reason}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                        </p>
+                      )}
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
             </section>
           )}
