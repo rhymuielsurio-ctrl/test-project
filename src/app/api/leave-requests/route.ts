@@ -36,7 +36,10 @@ export async function POST(request: NextRequest) {
       const balance = await getBalanceInfo(session.userId, data.leaveTypeId);
       if (data.requestedDays > balance.remaining) {
         const overage = data.requestedDays - balance.remaining;
-        warning = `Your request exceeds your remaining balance of ${balance.remaining} days by ${overage} day(s); it will be split and filed partly as unpaid.`;
+        warning =
+          balance.remaining >= 1
+            ? `Your request exceeds your remaining balance of ${balance.remaining} days by ${overage} day(s); it will be split and filed partly as unpaid.`
+            : `Your request exceeds your remaining balance of ${balance.remaining} days by ${overage} day(s); it will be filed as unpaid.`;
       }
     }
 
