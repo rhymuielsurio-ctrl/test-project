@@ -103,7 +103,7 @@ export default function ManagerQueuePage() {
 
   if (loading) {
     return (
-      <main className="mx-auto max-w-4xl px-4 py-8">
+      <main className="px-4 py-8 sm:px-6">
         <h1 className="mb-6 text-2xl font-semibold tracking-tight">Manager Approval Queue</h1>
         <div className="space-y-4">
           {[1, 2, 3].map((i) => (
@@ -116,7 +116,7 @@ export default function ManagerQueuePage() {
 
   if (error && requests.length === 0) {
     return (
-      <main className="mx-auto max-w-4xl px-4 py-8">
+      <main className="px-4 py-8 sm:px-6">
         <h1 className="mb-6 text-2xl font-semibold tracking-tight">Manager Approval Queue</h1>
         <div
           className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive"
@@ -129,7 +129,7 @@ export default function ManagerQueuePage() {
   }
 
   return (
-    <main className="mx-auto max-w-4xl px-4 py-8">
+    <main className="px-4 py-8 sm:px-6">
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">Manager Approval Queue</h1>
       <ManagerQueueTable
         requests={requests}

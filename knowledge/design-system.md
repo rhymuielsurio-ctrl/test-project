@@ -84,7 +84,9 @@ Tables are **feature** components, not shared primitives:
   `md` the site keeps a slim top bar (brand + hamburger) and the nav moves into a
   left slide-in drawer (`mobile-nav.tsx`) with a session footer.
 - `app-nav.tsx` hides the whole shell on public routes (`/login`).
-- Page max-width: `max-w-2xl` (forms), `max-w-4xl`/`max-w-5xl` (tables).
+- Page framing is a **fluid container** — `<main class="px-4 py-8 sm:px-6">` —
+  with no max-width wrapper on page content; `My Leave Balance`, `Submit Leave
+Request`, and `Employee Audit History` all follow this pattern.
 
 ## Iconography
 
