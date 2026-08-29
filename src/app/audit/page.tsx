@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Alert from "@mui/material/Alert";
-import FormControl from "@mui/material/FormControl";
-import InputLabel from "@mui/material/InputLabel";
-import MenuItem from "@mui/material/MenuItem";
-import Paper from "@mui/material/Paper";
-import Select from "@mui/material/Select";
-import Typography from "@mui/material/Typography";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardDescription } from "@/components/ui/card";
 import { MOCK_USERS } from "@/lib/mock-data";
 import {
   AuditActivityTimeline,
@@ -54,22 +56,18 @@ export default function AuditHistoryPage() {
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">Employee Audit History</h1>
 
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start">
-        <FormControl size="small" sx={{ minWidth: 260 }}>
-          <InputLabel id="employee-select-label">Select Employee</InputLabel>
-          <Select
-            labelId="employee-select-label"
-            id="employee-select"
-            value={selectedUserId}
-            label="Select Employee"
-            onChange={(e) => setSelectedUserId(e.target.value as string)}
-          >
+        <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+          <SelectTrigger className="w-64">
+            <SelectValue placeholder="Select Employee" />
+          </SelectTrigger>
+          <SelectContent>
             {userOptions.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
+              <SelectItem key={option.value} value={option.value}>
                 {option.label}
-              </MenuItem>
+              </SelectItem>
             ))}
-          </Select>
-        </FormControl>
+          </SelectContent>
+        </Select>
       </div>
 
       {loading && (
@@ -91,11 +89,11 @@ export default function AuditHistoryPage() {
       )}
 
       {!loading && !error && !selectedUserId && (
-        <Paper variant="outlined" sx={{ p: 6, textAlign: "center" }}>
-          <Typography color="text.secondary">
+        <Card className="items-center p-6">
+          <CardDescription className="text-center">
             Select an employee to view their audit history.
-          </Typography>
-        </Paper>
+          </CardDescription>
+        </Card>
       )}
     </main>
   );
