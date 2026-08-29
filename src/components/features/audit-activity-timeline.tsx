@@ -10,7 +10,7 @@ import TimelineDot from "@mui/lab/TimelineDot";
 import TimelineItem from "@mui/lab/TimelineItem";
 import TimelineSeparator from "@mui/lab/TimelineSeparator";
 import { StatusBadge } from "@/components/features/status-badge";
-import { MOCK_USERS, MOCK_LEAVE_TYPES } from "@/lib/mock-data";
+import { MOCK_LEAVE_TYPES } from "@/lib/mock-data";
 
 export interface AuditEntry {
   id: string;
@@ -37,6 +37,7 @@ export interface AuditRequest {
 interface AuditActivityTimelineProps {
   requests: AuditRequest[];
   userName?: string;
+  userNames: Record<string, string>;
 }
 
 interface ActivityItem {
@@ -51,8 +52,8 @@ function initialOf(name: string): string {
   return name.trim().charAt(0).toUpperCase() || "?";
 }
 
-function resolveUserName(userId: string): string {
-  return MOCK_USERS.find((u) => u.id === userId)?.name ?? "Unknown";
+function resolveUserName(userId: string, userNames: Record<string, string>): string {
+  return userNames[userId] ?? "Unknown";
 }
 
 function resolveLeaveTypeName(typeId: string): string {
@@ -90,7 +91,10 @@ function actionDotColor(action: string): ActivityItem["color"] {
   }
 }
 
-function buildRequestActivityItems(request: AuditRequest): ActivityItem[] {
+function buildRequestActivityItems(
+  request: AuditRequest,
+  userNames: Record<string, string>,
+): ActivityItem[] {
   const items: ActivityItem[] = request.auditEntries.map((entry) => ({
     key: entry.id,
     color: actionDotColor(entry.action),
@@ -98,7 +102,7 @@ function buildRequestActivityItems(request: AuditRequest): ActivityItem[] {
       entry.action === "rejected" && entry.details
         ? `Rejected — ${entry.details}`
         : humanizeAction(entry.action),
-    meta: [resolveUserName(entry.actor_id), formatTimestamp(entry.occurred_at)]
+    meta: [resolveUserName(entry.actor_id, userNames), formatTimestamp(entry.occurred_at)]
       .filter(Boolean)
       .join(" · "),
     occurredAt: new Date(entry.occurred_at).getTime(),
@@ -117,7 +121,7 @@ function buildRequestActivityItems(request: AuditRequest): ActivityItem[] {
         request.status === "rejected" && rejectionDetails
           ? `Rejected — ${rejectionDetails}`
           : humanizeAction(request.status),
-      meta: `Decided by ${resolveUserName(request.decided_by)} · ${formatTimestamp(
+      meta: `Decided by ${resolveUserName(request.decided_by, userNames)} · ${formatTimestamp(
         request.decided_at,
       )}`,
       occurredAt: new Date(request.decided_at).getTime(),
@@ -133,7 +137,11 @@ function sortByNewestFirst(requests: AuditRequest[]): AuditRequest[] {
   );
 }
 
-export function AuditActivityTimeline({ requests, userName }: AuditActivityTimelineProps) {
+export function AuditActivityTimeline({
+  requests,
+  userName,
+  userNames,
+}: AuditActivityTimelineProps) {
   if (requests.length === 0) {
     return (
       <Paper variant="outlined" sx={{ p: 6, textAlign: "center" }}>
@@ -147,7 +155,7 @@ export function AuditActivityTimeline({ requests, userName }: AuditActivityTimel
   return (
     <div className="flex flex-col gap-4">
       {sorted.map((request) => {
-        const items = buildRequestActivityItems(request);
+        const items = buildRequestActivityItems(request, userNames);
         return (
           <Paper key={request.id} variant="outlined" sx={{ p: 2.5 }}>
             <Stack

@@ -18,5 +18,12 @@ export function handleApiError(error: unknown): Response {
   if (error instanceof AppError) {
     return errorResponse(error.code, error.message, error.statusCode);
   }
+  if (error instanceof Error) {
+    console.error("[api] unexpected error:", error.message, {
+      code: (error as Error & { code?: string }).code,
+    });
+  } else {
+    console.error("[api] unexpected error:", error);
+  }
   return errorResponse("INTERNAL_ERROR", "An unexpected error occurred", 500);
 }

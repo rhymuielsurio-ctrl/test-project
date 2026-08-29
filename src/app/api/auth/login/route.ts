@@ -9,6 +9,7 @@ import {
   verifyLoginPassword,
 } from "@/lib/auth";
 import { isDatabaseConfigured } from "@/lib/db";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 interface LoginBody {
   email?: string;
@@ -17,6 +18,8 @@ interface LoginBody {
 
 export async function POST(request: NextRequest) {
   try {
+    checkRateLimit(request, "login");
+
     let body: LoginBody;
     try {
       body = await request.json();
