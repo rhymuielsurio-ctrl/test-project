@@ -1,17 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Alert from "@mui/material/Alert";
+import FormControl from "@mui/material/FormControl";
+import InputLabel from "@mui/material/InputLabel";
+import MenuItem from "@mui/material/MenuItem";
+import Paper from "@mui/material/Paper";
+import Select from "@mui/material/Select";
+import Typography from "@mui/material/Typography";
 import { MOCK_USERS } from "@/lib/mock-data";
-import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Card } from "@/components/ui/card";
-import { AuditHistoryTable, type AuditRequest } from "@/components/features/audit-history-table";
+  AuditActivityTimeline,
+  type AuditRequest,
+} from "@/components/features/audit-activity-timeline";
 
 const userOptions = MOCK_USERS.map((u) => ({ value: u.id, label: u.name }));
 
@@ -46,24 +47,29 @@ export default function AuditHistoryPage() {
     fetchAudit(selectedUserId);
   }, [selectedUserId, fetchAudit]);
 
+  const selectedUser = MOCK_USERS.find((u) => u.id === selectedUserId);
+
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
+    <main className="px-4 py-8 sm:px-6">
       <h1 className="mb-6 text-2xl font-semibold tracking-tight">Employee Audit History</h1>
 
-      <div className="mb-6 grid max-w-xs gap-2">
-        <Label htmlFor="employee-select">Select Employee</Label>
-        <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-          <SelectTrigger id="employee-select" className="w-full">
-            <SelectValue placeholder="Choose an employee..." />
-          </SelectTrigger>
-          <SelectContent>
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start">
+        <FormControl size="small" sx={{ minWidth: 260 }}>
+          <InputLabel id="employee-select-label">Select Employee</InputLabel>
+          <Select
+            labelId="employee-select-label"
+            id="employee-select"
+            value={selectedUserId}
+            label="Select Employee"
+            onChange={(e) => setSelectedUserId(e.target.value as string)}
+          >
             {userOptions.map((option) => (
-              <SelectItem key={option.value} value={option.value}>
+              <MenuItem key={option.value} value={option.value}>
                 {option.label}
-              </SelectItem>
+              </MenuItem>
             ))}
-          </SelectContent>
-        </Select>
+          </Select>
+        </FormControl>
       </div>
 
       {loading && (
@@ -75,22 +81,21 @@ export default function AuditHistoryPage() {
       )}
 
       {error && (
-        <div
-          className="rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive"
-          role="alert"
-        >
+        <Alert severity="error" sx={{ mb: 4 }}>
           {error}
-        </div>
+        </Alert>
       )}
 
-      {!loading && !error && selectedUserId && <AuditHistoryTable requests={requests} />}
+      {!loading && !error && selectedUserId && (
+        <AuditActivityTimeline requests={requests} userName={selectedUser?.name} />
+      )}
 
       {!loading && !error && !selectedUserId && (
-        <Card className="flex flex-col items-center gap-2 p-10 text-center" role="status">
-          <p className="text-sm text-muted-foreground">
+        <Paper variant="outlined" sx={{ p: 6, textAlign: "center" }}>
+          <Typography color="text.secondary">
             Select an employee to view their audit history.
-          </p>
-        </Card>
+          </Typography>
+        </Paper>
       )}
     </main>
   );
