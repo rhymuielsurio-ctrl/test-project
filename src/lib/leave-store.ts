@@ -316,7 +316,7 @@ export async function createLeaveRequestWithSplit(input: {
       }
     }
 
-    const split = validated !== null;
+    const split = Boolean(validated && (validated.paid ?? validated.unpaid));
 
     const segments: { code: string; start: string; end: string }[] = [];
     if (split) {
