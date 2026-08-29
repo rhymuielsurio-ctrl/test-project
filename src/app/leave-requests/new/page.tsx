@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { LeaveRequestForm } from "@/components/features/leave-request-form";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function NewLeaveRequestPage() {
   const router = useRouter();
@@ -45,14 +44,8 @@ export default function NewLeaveRequestPage() {
 
   return (
     <main className="px-4 py-8 sm:px-6">
-      <Card className="mx-auto max-w-3xl">
-        <CardHeader>
-          <CardTitle className="text-xl">Submit Leave Request</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <LeaveRequestForm onSubmit={handleSubmit} />
-        </CardContent>
-      </Card>
+      <h1 className="mb-6 text-2xl font-semibold tracking-tight">Submit Leave Request</h1>
+      <LeaveRequestForm onSubmit={handleSubmit} />
     </main>
   );
 }
