@@ -52,3 +52,22 @@ notifications, HR actions) reuse it.
 `OVERBALANCE_ALLOWANCE_DAYS` and the relaxed approval guards are gone —
 `decideLeaveRequest` enforces strict `balance >= days` again. See the
 superseded allowance retro for the interim design.
+
+## Retro — fractional-balance message/split consistency (2026-08-29)
+
+A user with fractional remaining balance (e.g. 5.5 accrued − 5 pending = 0.5)
+saw "it will be split" while the filing landed as a single Unpaid request.
+Root cause: the route's message keyed on `remaining > 0`, but a paid segment
+needs a whole weekday — `splitLeaveRange` floors (`paidDays = floor(remaining)`),
+so `0 < remaining < 1` produces zero paid days. Rule now re-enforced:
+
+- The over-balance warning uses "split" language only when `remaining >= 1`;
+  otherwise it says "filed as unpaid" — the message must never promise a split
+  the floor-based math cannot deliver.
+- `split` (the response + segment flag) is now `Boolean(validated.paid || validated.unpaid)`
+  instead of `validated !== null`: a `{paid:null, unpaid:null}` no-split result
+  previously set split=true and could persist zero request rows (reachable if
+  pending days grew between the route's check and the txn).
+
+Takeaway: message text and data-layer math must share one definition of
+"splittable". Flooring convention: whole weekday for paid, remainder unpaid.
