@@ -58,12 +58,16 @@ export async function createUser(input: {
   email: string;
   password: string;
 }): Promise<{ id: string; name: string; role: UserRole }> {
+  const passwordHash = await bcrypt.hash(input.password, 10);
+
   const existing = await findUserByEmail(input.email);
   if (existing) {
-    throw new AppError("EMAIL_TAKEN", "An account with this email already exists", 409);
+    throw new AppError(
+      "VALIDATION_ERROR",
+      "Registration could not be completed. Please try again.",
+      400,
+    );
   }
-
-  const passwordHash = await bcrypt.hash(input.password, 10);
 
   try {
     const { rows } = await getPool().query<{ id: string; name: string; role: UserRole }>(
@@ -75,7 +79,11 @@ export async function createUser(input: {
     return rows[0];
   } catch (error) {
     if ((error as { code?: string }).code === "23505") {
-      throw new AppError("EMAIL_TAKEN", "An account with this email already exists", 409);
+      throw new AppError(
+        "VALIDATION_ERROR",
+        "Registration could not be completed. Please try again.",
+        400,
+      );
     }
     throw error;
   }
