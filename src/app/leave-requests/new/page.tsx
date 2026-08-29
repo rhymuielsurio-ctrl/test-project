@@ -44,8 +44,8 @@ export default function NewLeaveRequestPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
-      <Card>
+    <main className="px-4 py-8 sm:px-6">
+      <Card className="mx-auto max-w-3xl">
         <CardHeader>
           <CardTitle className="text-xl">Submit Leave Request</CardTitle>
         </CardHeader>
@@ -53,6 +53,6 @@ export default function NewLeaveRequestPage() {
           <LeaveRequestForm onSubmit={handleSubmit} />
         </CardContent>
       </Card>
-    </div>
+    </main>
   );
 }
