@@ -20,6 +20,10 @@ export interface EnrichedLeaveRequest extends DbLeaveRequest {
   totalDays: number;
 }
 
+export interface MyLeaveRequest extends DbLeaveRequest {
+  rejection_reason: string | null;
+}
+
 export interface AuditReportRequest {
   id: string;
   leave_type_id: string;
@@ -180,7 +184,7 @@ export async function createLeaveRequest(input: {
   }
 }
 
-export async function listRequestsForUser(userId: string): Promise<DbLeaveRequest[]> {
+export async function listRequestsForUser(userId: string): Promise<MyLeaveRequest[]> {
   const { rows } = await getPool().query<{
     id: string;
     user_id: string;
@@ -193,18 +197,28 @@ export async function listRequestsForUser(userId: string): Promise<DbLeaveReques
     decided_at: Date | null;
     is_deleted: boolean;
     created_at: Date;
+    rejection_reason: string | null;
   }>(
     `SELECT r.id, r.user_id, lt.code AS leave_type_code,
             r.start_date::text AS start_date, r.end_date::text AS end_date,
             r.reason, r.status, r.decided_by, r.decided_at,
-            r.is_deleted, r.created_at
+            r.is_deleted, r.created_at,
+            (SELECT al.details
+               FROM audit_log al
+              WHERE al.leave_request_id = r.id
+                AND al.action = 'rejected'
+              ORDER BY al.occurred_at DESC
+              LIMIT 1) AS rejection_reason
        FROM leave_requests r
        JOIN leave_types lt ON lt.id = r.leave_type_id
       WHERE r.user_id = $1 AND NOT r.is_deleted
-      ORDER BY r.created_at`,
+      ORDER BY r.created_at DESC`,
     [userId],
   );
-  return rows.map(toWireLeaveRequest);
+  return rows.map((row) => ({
+    ...toWireLeaveRequest(row),
+    rejection_reason: row.rejection_reason,
+  }));
 }
 
 export async function listTeamPendingRequests(managerId: string): Promise<EnrichedLeaveRequest[]> {

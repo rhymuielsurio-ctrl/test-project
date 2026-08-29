@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CalendarPlus } from "lucide-react";
 import Link from "next/link";
-import type { DbLeaveRequest } from "@/lib/mock-data";
+import type { MyLeaveRequest } from "@/lib/leave-store";
 
 interface LeaveType {
   id: string;
@@ -23,8 +23,18 @@ interface BalanceEntry {
 }
 
 interface BalanceData {
-  requests: DbLeaveRequest[];
+  requests: MyLeaveRequest[];
   balances: BalanceEntry[];
+}
+
+const requestedAtFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
+function formatRequestedAt(value: string): string {
+  return requestedAtFormatter.format(new Date(value));
 }
 
 export default function LeaveBalancePage() {
@@ -126,9 +136,17 @@ export default function LeaveBalancePage() {
                       <CardDescription className="text-sm tabular-nums">
                         {r.start_date} — {r.end_date}
                       </CardDescription>
+                      <p className="mt-1.5 text-xs text-muted-foreground">
+                        Requested {formatRequestedAt(r.created_at)}
+                      </p>
                       {r.reason && (
                         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                           {r.reason}
+                        </p>
+                      )}
+                      {r.status === "rejected" && r.rejection_reason && (
+                        <p className="mt-2 text-sm leading-relaxed text-destructive">
+                          Rejected: {r.rejection_reason}
                         </p>
                       )}
                     </CardContent>
