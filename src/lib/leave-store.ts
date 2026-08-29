@@ -7,6 +7,8 @@ import {
   type DbLeaveRequest,
 } from "@/lib/mock-data";
 
+export const OVERBALANCE_ALLOWANCE_DAYS = 7;
+
 export interface LeaveTypeRow {
   id: string;
   code: string;
@@ -330,10 +332,10 @@ export async function decideLeaveRequest(input: {
         );
       }
       availableBalance = balance.rows[0].balance;
-      if (availableBalance < days) {
+      if (availableBalance + OVERBALANCE_ALLOWANCE_DAYS < days) {
         throw new AppError(
           "INSUFFICIENT_BALANCE",
-          `Insufficient balance: ${availableBalance} available, ${days} requested`,
+          `Insufficient balance: ${availableBalance} available, ${days} requested (max overage ${OVERBALANCE_ALLOWANCE_DAYS} days)`,
           400,
         );
       }
@@ -350,13 +352,13 @@ export async function decideLeaveRequest(input: {
       const deduction = await client.query(
         `UPDATE leave_balances
             SET balance = balance - $1, updated_at = now()
-          WHERE user_id = $2 AND leave_type_id = $3 AND balance >= $1`,
-        [days, row.user_id, row.leave_type_id],
+          WHERE user_id = $2 AND leave_type_id = $3 AND balance >= $1 - $4`,
+        [days, row.user_id, row.leave_type_id, OVERBALANCE_ALLOWANCE_DAYS],
       );
       if (deduction.rowCount === 0) {
         throw new AppError(
           "INSUFFICIENT_BALANCE",
-          `Insufficient balance: ${availableBalance} available, ${days} requested`,
+          `Insufficient balance: ${availableBalance} available, ${days} requested (max overage ${OVERBALANCE_ALLOWANCE_DAYS} days)`,
           400,
         );
       }

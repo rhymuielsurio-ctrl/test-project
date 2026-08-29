@@ -8,6 +8,7 @@ import {
   listLeaveTypes,
   listRequestsForUser,
   listTeamPendingRequests,
+  OVERBALANCE_ALLOWANCE_DAYS,
 } from "@/lib/leave-store";
 import { validateLeaveRequest, type LeaveRequestInput } from "@/lib/validators";
 
@@ -34,9 +35,11 @@ export async function POST(request: NextRequest) {
     if (leaveType?.tracks_balance) {
       const balance = await getBalanceInfo(session.userId, data.leaveTypeId);
       if (data.requestedDays > balance.remaining) {
+        const overage = data.requestedDays - balance.remaining;
         warning =
-          `Requested ${data.requestedDays} days exceeds remaining balance of ${balance.remaining} days. ` +
-          "Submitting for HR override.";
+          overage > OVERBALANCE_ALLOWANCE_DAYS
+            ? `Requested ${data.requestedDays} days exceeds your remaining balance of ${balance.remaining} days by ${overage} days, beyond the ${OVERBALANCE_ALLOWANCE_DAYS}-day allowance. Manager approval may be refused.`
+            : `Requested ${data.requestedDays} days exceeds your remaining balance of ${balance.remaining} days by ${overage} days, within the ${OVERBALANCE_ALLOWANCE_DAYS}-day allowance.`;
       }
     }
 
