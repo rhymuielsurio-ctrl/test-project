@@ -53,6 +53,34 @@ export async function verifyLoginPassword(
   return bcrypt.compare(password, hash);
 }
 
+export async function createUser(input: {
+  name: string;
+  email: string;
+  password: string;
+}): Promise<{ id: string; name: string; role: UserRole }> {
+  const existing = await findUserByEmail(input.email);
+  if (existing) {
+    throw new AppError("EMAIL_TAKEN", "An account with this email already exists", 409);
+  }
+
+  const passwordHash = await bcrypt.hash(input.password, 10);
+
+  try {
+    const { rows } = await getPool().query<{ id: string; name: string; role: UserRole }>(
+      `INSERT INTO users (name, email, role, password_hash)
+       VALUES ($1, $2, 'employee', $3)
+       RETURNING id, name, role`,
+      [input.name, input.email, passwordHash],
+    );
+    return rows[0];
+  } catch (error) {
+    if ((error as { code?: string }).code === "23505") {
+      throw new AppError("EMAIL_TAKEN", "An account with this email already exists", 409);
+    }
+    throw error;
+  }
+}
+
 export async function createSession(userId: string): Promise<{ token: string; expiresAt: Date }> {
   const token = generateSessionToken();
   const expiresAt = new Date(Date.now() + SESSION_MAX_AGE_SECONDS * 1000);

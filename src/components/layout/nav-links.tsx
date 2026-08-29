@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { UserRole } from "@/lib/auth";
-import { CalendarDays, ClipboardCheck, LayoutDashboard, ScrollText } from "lucide-react";
+import { CalendarDays, ClipboardCheck, LayoutDashboard, ScrollText, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface NavLink {
@@ -17,6 +17,7 @@ const LINKS: NavLink[] = [
   { href: "/leave-requests/new", label: "New Request" },
   { href: "/leave-requests/queue", label: "Approval Queue", roles: ["manager"] },
   { href: "/audit", label: "Audit", roles: ["hr_admin"] },
+  { href: "/employees", label: "Employees", roles: ["hr_admin"] },
 ];
 
 const LINK_ICONS: Record<string, typeof LayoutDashboard> = {
@@ -24,6 +25,7 @@ const LINK_ICONS: Record<string, typeof LayoutDashboard> = {
   "/leave-requests/new": CalendarDays,
   "/leave-requests/queue": ClipboardCheck,
   "/audit": ScrollText,
+  "/employees": Users,
 };
 
 export interface NavLinksProps {
