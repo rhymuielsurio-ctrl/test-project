@@ -8,9 +8,12 @@ import {
   createUser,
 } from "@/lib/auth";
 import { isDatabaseConfigured } from "@/lib/db";
+import { checkRateLimit } from "@/lib/rate-limit";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
+const MAX_PASSWORD_LENGTH = 72;
+const MAX_NAME_LENGTH = 60;
 
 interface RegisterBody {
   name?: string;
@@ -20,6 +23,8 @@ interface RegisterBody {
 
 export async function POST(request: NextRequest) {
   try {
+    checkRateLimit(request, "register");
+
     let body: RegisterBody;
     try {
       body = await request.json();
@@ -34,6 +39,9 @@ export async function POST(request: NextRequest) {
     if (!name) {
       throw new AppError("VALIDATION_ERROR", "Name is required");
     }
+    if (name.length > MAX_NAME_LENGTH) {
+      throw new AppError("VALIDATION_ERROR", `Name must be at most ${MAX_NAME_LENGTH} characters`);
+    }
     if (!email || !EMAIL_PATTERN.test(email)) {
       throw new AppError("VALIDATION_ERROR", "A valid email is required");
     }
@@ -41,6 +49,12 @@ export async function POST(request: NextRequest) {
       throw new AppError(
         "VALIDATION_ERROR",
         `Password must be at least ${MIN_PASSWORD_LENGTH} characters`,
+      );
+    }
+    if (password.length > MAX_PASSWORD_LENGTH) {
+      throw new AppError(
+        "VALIDATION_ERROR",
+        `Password must be at most ${MAX_PASSWORD_LENGTH} characters`,
       );
     }
 
