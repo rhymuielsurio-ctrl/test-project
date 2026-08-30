@@ -18,7 +18,7 @@ interface DbUserRow {
   email: string;
   role: UserRole;
   manager_id: string | null;
-  password_hash: string;
+  password_hash: string | null;
 }
 
 const DUMMY_PASSWORD_HASH = "$2b$10$4LUoAi6yFaBSdmkdGKdIjO/7eZI5aamELO2jeqy.IJ/xHuwGkMCa.";
@@ -49,6 +49,9 @@ export async function verifyLoginPassword(
   password: string,
   user: Pick<DbUserRow, "password_hash"> | null,
 ): Promise<boolean> {
+  if (user?.password_hash === null) {
+    return false;
+  }
   const hash = user?.password_hash ?? DUMMY_PASSWORD_HASH;
   return bcrypt.compare(password, hash);
 }
@@ -87,6 +90,24 @@ export async function createUser(input: {
     }
     throw error;
   }
+}
+
+export async function findOrCreateGoogleUser(input: {
+  name: string;
+  email: string;
+}): Promise<{ id: string; name: string; role: UserRole }> {
+  const existing = await findUserByEmail(input.email);
+  if (existing) {
+    return { id: existing.id, name: existing.name, role: existing.role };
+  }
+
+  const { rows } = await getPool().query<{ id: string; name: string; role: UserRole }>(
+    `INSERT INTO users (name, email, role, password_hash)
+     VALUES ($1, $2, 'employee', NULL)
+     RETURNING id, name, role`,
+    [input.name, input.email],
+  );
+  return rows[0];
 }
 
 export async function createSession(userId: string): Promise<{ token: string; expiresAt: Date }> {
