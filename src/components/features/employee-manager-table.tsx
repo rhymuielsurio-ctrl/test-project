@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -30,7 +31,7 @@ export function EmployeeManagerTable({ employees }: EmployeeManagerTableProps) {
   const [rows, setRows] = useState(employees);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  const managers = employees
+  const managers = rows
     .filter((e) => e.role === "manager")
     .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -70,6 +71,29 @@ export function EmployeeManagerTable({ employees }: EmployeeManagerTableProps) {
     }
   }
 
+  async function handlePromote(employeeId: string) {
+    const previous = rows.find((e) => e.id === employeeId);
+    setUpdatingId(employeeId);
+    try {
+      const res = await fetch(`/api/employees/${employeeId}/promote`, {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error?.message ?? "Failed to promote employee");
+      }
+
+      setRows((current): EmployeeManagementRow[] =>
+        current.map((e) => (e.id === employeeId ? { ...e, role: "manager" as const } : e)),
+      );
+      toast.success(`${previous?.name ?? "Employee"} promoted to manager`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to promote employee");
+    } finally {
+      setUpdatingId(null);
+    }
+  }
+
   const employeeRows = rows.filter((e) => e.role === "employee");
 
   return (
@@ -81,6 +105,7 @@ export function EmployeeManagerTable({ employees }: EmployeeManagerTableProps) {
             <TableHead>Employee</TableHead>
             <TableHead className="w-full">Email</TableHead>
             <TableHead>Current manager</TableHead>
+            <TableHead>Role</TableHead>
             <TableHead className="w-56">Manager</TableHead>
           </TableRow>
         </TableHeader>
@@ -93,6 +118,22 @@ export function EmployeeManagerTable({ employees }: EmployeeManagerTableProps) {
                 <TableCell className="text-muted-foreground">{employee.email}</TableCell>
                 <TableCell className="text-muted-foreground">
                   {employee.manager_name ?? "None"}
+                </TableCell>
+                <TableCell>
+                  {employee.role === "manager" ? (
+                    <span className="text-sm text-muted-foreground">Manager</span>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePromote(employee.id)}
+                      disabled={updatingId === employee.id}
+                      aria-label={`Promote ${employee.name} to manager`}
+                    >
+                      {updatingId === employee.id ? "Promoting..." : "Promote"}
+                    </Button>
+                  )}
                 </TableCell>
                 <TableCell>
                   <Select

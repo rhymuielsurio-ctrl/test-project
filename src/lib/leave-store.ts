@@ -789,6 +789,29 @@ export async function updateEmployeeManager(id: string, managerId: string | null
   await getPool().query(`UPDATE users SET manager_id = $2 WHERE id = $1`, [id, managerId]);
 }
 
+export async function promoteEmployee(id: string): Promise<EmployeeManagementRow> {
+  const target = await getPool().query<{ role: UserRole }>(`SELECT role FROM users WHERE id = $1`, [
+    id,
+  ]);
+  if (target.rowCount === 0) {
+    throw new AppError("NOT_FOUND", "Employee not found", 404);
+  }
+  if (target.rows[0].role !== "employee") {
+    throw new AppError("VALIDATION_ERROR", "Only employees can be promoted to manager", 400);
+  }
+
+  await getPool().query(`UPDATE users SET role = 'manager' WHERE id = $1`, [id]);
+
+  const { rows } = await getPool().query<EmployeeManagementRow>(
+    `SELECT u.id, u.name, u.email, u.role, u.manager_id, m.name AS manager_name
+       FROM users u
+       LEFT JOIN users m ON m.id = u.manager_id
+      WHERE u.id = $1`,
+    [id],
+  );
+  return rows[0];
+}
+
 export interface AuditUserRow {
   id: string;
   name: string;
