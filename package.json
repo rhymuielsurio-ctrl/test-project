@@ -3,17 +3,18 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "db:migrate": "tsx scripts/migrate.ts",
+    "db:migrate": "tsx --env-file=.env.local scripts/migrate.ts",
+    "db:reset": "tsx --env-file=.env.local scripts/reset-db.ts && npm run db:migrate && npm run seed",
     "db:setup": "npm run db:migrate && npm run seed",
-    "dev": "next dev --turbopack",
-    "dev:cron": "vercel-local-cron run -p 3001",
+    "dev": "next dev --turbopack -p 3000",
+    "dev:cron": "vercel-local-cron run -p 3000",
     "build": "next build",
     "start": "next start",
     "lint": "eslint src/",
     "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,css}\"",
     "prepare": "husky",
-    "seed": "tsx scripts/seed.ts",
+    "seed": "tsx --env-file=.env.local scripts/seed.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
