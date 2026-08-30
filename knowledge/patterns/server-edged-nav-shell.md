@@ -108,3 +108,17 @@ register was invisible to HR audit — and the timeline resolved actor names
   (register, manager reassignment) exist. If the page renders data that can
   be written at runtime, pull it from the same store the writes go to — a
   static mirror is only safe on Day 0 with no write paths.
+
+## Role writes take effect immediately because roles live in the DB (2026-08-30)
+
+`getMockSession()` does NOT bake the role into the cookie — it JOINs `users`
+per request and reads `u.role` live (`src/lib/auth.ts`). Consequence for the
+HR "promote to manager" control: a role UPDATE is visible to the promoted
+member on their very next request (nav re-renders, new Approval Queue link,
+server `requireAuth(["manager"])` passes) with NO re-login and NO session-
+store touch. The cookie only proves identity; the DB is the source of truth
+for authorization. So a role-mutation feature is just data + a gated route:
+`promoteEmployee` (single `UPDATE users SET role`, guard role === 'employee'
+first) + `requireAuth(["hr_admin"])` endpoint + an optimistic client row
+update. When adding any future role feature, push the role check into the
+query/guard server-side and let the per-request JOIN do the freshness work.
