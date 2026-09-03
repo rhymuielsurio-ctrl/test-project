@@ -17,11 +17,14 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-dvh">
       <aside className="fixed inset-y-0 z-30 hidden w-64 flex-col border-r border-border bg-background md:flex">
-        <div className="flex h-16 items-center gap-2 border-b border-border px-4">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <BriefcaseBusiness className="size-4" />
-          </span>
-          <span className="text-lg font-semibold tracking-tight text-primary">LeaveTrack</span>
+        <div className="flex h-16 items-center justify-between border-b border-border px-4">
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+              <BriefcaseBusiness className="size-4" />
+            </span>
+            <span className="text-lg font-semibold tracking-tight text-primary">LeaveTrack</span>
+          </div>
+          {session && <NotificationsPopover />}
         </div>
 
         <nav className="flex-1 overflow-y-auto p-4">
@@ -39,10 +42,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             </div>
             <span className="truncate text-sm font-medium">{name}</span>
           </div>
-          <div className="flex items-center gap-1">
-            {session && <NotificationsPopover />}
-            <LogoutButton />
-          </div>
+          <LogoutButton />
         </div>
       </aside>
 
