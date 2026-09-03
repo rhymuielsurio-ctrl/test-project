@@ -41,21 +41,23 @@ export function NotificationsPopover() {
     load();
   }, [load]);
 
-  async function handleMarkRead(id: string) {
-    try {
-      const res = await fetch(`/api/notifications/${id}`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error?.message ?? "Failed to mark notification read");
-      }
-      setItems((current) =>
-        current.map((item) =>
-          item.id === id ? { ...item, read_at: new Date().toISOString() } : item,
-        ),
-      );
-      setUnreadCount((count) => Math.max(0, count - 1));
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to mark notification read");
+  function handleOpenChange(next: boolean): void {
+    setOpen(next);
+    if (next && unreadCount > 0) {
+      fetch("/api/notifications/read-all", { method: "POST" })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success) {
+            setUnreadCount(0);
+            setItems((current) =>
+              current.map((item) => ({
+                ...item,
+                read_at: item.read_at ?? new Date().toISOString(),
+              })),
+            );
+          }
+        })
+        .catch(() => toast.error("Failed to clear notifications"));
     }
   }
 
@@ -70,7 +72,7 @@ export function NotificationsPopover() {
   }
 
   return (
-    <Popover open={open} onOpenChange={(next) => setOpen(next)}>
+    <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         <Button
           variant="ghost"
@@ -105,28 +107,16 @@ export function NotificationsPopover() {
                 key={item.id}
                 className={`border-b border-border px-3 py-2.5 ${item.read_at ? "" : "bg-muted/50"}`}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p
-                      className={`text-sm font-medium ${item.read_at ? "text-muted-foreground" : ""}`}
-                    >
-                      {item.title}
-                    </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{item.message}</p>
-                    <p className="mt-1 text-[10px] text-muted-foreground">
-                      {formatDate(item.created_at)}
-                    </p>
-                  </div>
-                  {!item.read_at && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleMarkRead(item.id)}
-                      className="shrink-0 text-xs"
-                    >
-                      Mark read
-                    </Button>
-                  )}
+                <div className="min-w-0">
+                  <p
+                    className={`text-sm font-medium ${item.read_at ? "text-muted-foreground" : ""}`}
+                  >
+                    {item.title}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{item.message}</p>
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    {formatDate(item.created_at)}
+                  </p>
                 </div>
               </li>
             ))}

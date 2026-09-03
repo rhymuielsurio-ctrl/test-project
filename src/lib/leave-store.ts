@@ -170,6 +170,26 @@ export async function createLeaveRequest(input: {
 
     await client.query("COMMIT");
 
+    try {
+      const manager = await getPool().query<{
+        manager_id: string | null;
+        requester_name: string;
+      }>(`SELECT u.manager_id, u.name AS requester_name FROM users u WHERE u.id = $1`, [
+        input.userId,
+      ]);
+      const row0 = manager.rows[0];
+      if (row0?.manager_id) {
+        await insertNotification(
+          getPool(),
+          row0.manager_id,
+          "New leave request",
+          `${row0.requester_name} filed ${type.rows[0].name} from ${created.rows[0].start_date} to ${created.rows[0].end_date}, pending your approval.`,
+        );
+      }
+    } catch (notificationError) {
+      console.error("[leave] manager notification skipped (best-effort):", notificationError);
+    }
+
     const row = created.rows[0];
     return toWireLeaveRequest({
       ...row,
@@ -406,6 +426,27 @@ export async function createLeaveRequestWithSplit(input: {
       }
     }
 
+    try {
+      const manager = await getPool().query<{
+        manager_id: string | null;
+        requester_name: string;
+      }>(`SELECT u.manager_id, u.name AS requester_name FROM users u WHERE u.id = $1`, [
+        input.userId,
+      ]);
+      const row0 = manager.rows[0];
+      if (row0?.manager_id) {
+        const first = requests[0];
+        await insertNotification(
+          getPool(),
+          row0.manager_id,
+          "New leave request",
+          `${row0.requester_name} filed ${type.rows[0].name} from ${first.start_date} to ${first.end_date}, pending your approval.`,
+        );
+      }
+    } catch (notificationError) {
+      console.error("[leave] manager notification skipped (best-effort):", notificationError);
+    }
+
     return { requests, split };
   } catch (error) {
     await client.query("ROLLBACK");
@@ -465,6 +506,14 @@ export async function markNotificationRead(id: string, userId: string): Promise<
   if (result.rowCount === 0) {
     throw new AppError("NOT_FOUND", "Notification not found", 404);
   }
+}
+
+export async function markAllNotificationsRead(userId: string): Promise<number> {
+  const result = await getPool().query(
+    `UPDATE notifications SET read_at = now() WHERE user_id = $1 AND read_at IS NULL`,
+    [userId],
+  );
+  return result.rowCount ?? 0;
 }
 
 export async function listRequestsForUser(userId: string): Promise<MyLeaveRequest[]> {
@@ -540,6 +589,20 @@ export async function listTeamPendingRequests(managerId: string): Promise<Enrich
     leaveTypeName: row.leave_type_name,
     totalDays: calculateBusinessDays(row.start_date, row.end_date),
   }));
+}
+
+export async function countTeamPendingRequests(managerId: string): Promise<number> {
+  const { rows } = await getPool().query<{ count: string }>(
+    `SELECT COUNT(*)::text AS count
+       FROM leave_requests r
+       JOIN users u ON u.id = r.user_id
+       JOIN leave_types lt ON lt.id = r.leave_type_id
+      WHERE u.manager_id = $1
+        AND r.status = 'pending'
+        AND NOT r.is_deleted`,
+    [managerId],
+  );
+  return Number(rows[0]?.count ?? 0);
 }
 
 export async function decideLeaveRequest(input: {
@@ -657,6 +720,25 @@ export async function decideLeaveRequest(input: {
     );
 
     await client.query("COMMIT");
+
+    try {
+      const actor = await getPool().query<{ name: string }>(
+        `SELECT name FROM users WHERE id = $1`,
+        [input.actorId],
+      );
+      const actorName = actor.rows[0]?.name ?? "Your manager";
+      const verb = input.decision === "approved" ? "approved" : "rejected";
+      const reason =
+        input.decision === "rejected" && input.rejectReason ? ` Reason: ${input.rejectReason}` : "";
+      await insertNotification(
+        getPool(),
+        row.user_id,
+        input.decision === "approved" ? "Leave request approved" : "Leave request rejected",
+        `${actorName} ${verb} your ${row.leave_type_code} request (${row.start_date} to ${row.end_date}).${reason}`,
+      );
+    } catch (notificationError) {
+      console.error("[leave] decision notification skipped (best-effort):", notificationError);
+    }
 
     return toWireLeaveRequest({
       ...row,
