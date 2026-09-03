@@ -435,12 +435,18 @@ export async function createLeaveRequestWithSplit(input: {
       ]);
       const row0 = manager.rows[0];
       if (row0?.manager_id) {
-        const first = requests[0];
+        const filedDetail = segments
+          .map((segment) => {
+            const dayCount = calculateBusinessDays(segment.start, segment.end);
+            const label = segment.code === "unpaid" ? "Unpaid" : type.rows[0].name;
+            return `${dayCount} day(s) of ${label} (${segment.start} to ${segment.end})`;
+          })
+          .join(" and ");
         await insertNotification(
           getPool(),
           row0.manager_id,
           "New leave request",
-          `${row0.requester_name} filed ${type.rows[0].name} from ${first.start_date} to ${first.end_date}, pending your approval.`,
+          `${row0.requester_name} filed ${filedDetail}, pending your approval.`,
         );
       }
     } catch (notificationError) {
