@@ -504,16 +504,6 @@ export async function listNotificationsForUser(userId: string): Promise<{
   return { items: items.rows, unreadCount: Number(unread.rows[0]?.count ?? 0) };
 }
 
-export async function markNotificationRead(id: string, userId: string): Promise<void> {
-  const result = await getPool().query(
-    `UPDATE notifications SET read_at = now() WHERE id = $1 AND user_id = $2`,
-    [id, userId],
-  );
-  if (result.rowCount === 0) {
-    throw new AppError("NOT_FOUND", "Notification not found", 404);
-  }
-}
-
 export async function markAllNotificationsRead(userId: string): Promise<number> {
   const result = await getPool().query(
     `UPDATE notifications SET read_at = now() WHERE user_id = $1 AND read_at IS NULL`,
