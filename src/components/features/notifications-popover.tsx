@@ -18,8 +18,10 @@ export function NotificationsPopover() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
     try {
       const res = await fetch("/api/notifications");
       const data: { success: boolean; data?: NotificationsResponse; error?: { message: string } } =
@@ -31,15 +33,28 @@ export function NotificationsPopover() {
       setUnreadCount(data.data?.unreadCount ?? 0);
     } catch (err) {
       console.error("[notifications] failed to load:", err);
-      toast.error("Notifications are unavailable right now.");
+      if (!silent) {
+        toast.error("Notifications are unavailable right now.");
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (!open) {
+        load(true);
+      }
+    }, 30000);
+    return () => clearInterval(interval);
+  }, [open, load]);
 
   function handleOpenChange(next: boolean): void {
     setOpen(next);
