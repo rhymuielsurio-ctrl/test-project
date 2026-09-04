@@ -24,6 +24,7 @@ export interface EnrichedLeaveRequest extends DbLeaveRequest {
 
 export interface MyLeaveRequest extends DbLeaveRequest {
   rejection_reason: string | null;
+  decided_by_name: string | null;
 }
 
 export interface AuditReportRequest {
@@ -536,11 +537,13 @@ export async function listRequestsForUser(userId: string): Promise<MyLeaveReques
     is_deleted: boolean;
     created_at: Date;
     rejection_reason: string | null;
+    decided_by_name: string | null;
   }>(
     `SELECT r.id, r.user_id, lt.code AS leave_type_code,
             r.start_date::text AS start_date, r.end_date::text AS end_date,
             r.reason, r.status, r.decided_by, r.decided_at,
             r.is_deleted, r.created_at,
+            d.name AS decided_by_name,
             (SELECT al.details
                FROM audit_log al
               WHERE al.leave_request_id = r.id
@@ -549,6 +552,7 @@ export async function listRequestsForUser(userId: string): Promise<MyLeaveReques
               LIMIT 1) AS rejection_reason
        FROM leave_requests r
        JOIN leave_types lt ON lt.id = r.leave_type_id
+       LEFT JOIN users d ON d.id = r.decided_by
       WHERE r.user_id = $1 AND NOT r.is_deleted
       ORDER BY r.created_at DESC`,
     [userId],
@@ -556,6 +560,7 @@ export async function listRequestsForUser(userId: string): Promise<MyLeaveReques
   return rows.map((row) => ({
     ...toWireLeaveRequest(row),
     rejection_reason: row.rejection_reason,
+    decided_by_name: row.decided_by_name,
   }));
 }
 

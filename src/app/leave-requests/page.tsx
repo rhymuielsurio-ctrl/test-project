@@ -37,6 +37,16 @@ function formatRequestedAt(value: string): string {
   return requestedAtFormatter.format(new Date(value));
 }
 
+const decidedAtFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
+function formatDecidedAt(value: string | null): string | null {
+  return value ? decidedAtFormatter.format(new Date(value)) : null;
+}
+
 export default function LeaveBalancePage() {
   const [data, setData] = useState<BalanceData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -149,6 +159,16 @@ export default function LeaveBalancePage() {
                           Rejected: {r.rejection_reason}
                         </p>
                       )}
+                      {(r.status === "approved" || r.status === "rejected") &&
+                        (r.decided_by_name || r.decided_at) && (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {r.status === "approved" ? "Approved" : "Rejected"} by{" "}
+                            {r.decided_by_name ?? "a manager"}
+                            {formatDecidedAt(r.decided_at)
+                              ? ` on ${formatDecidedAt(r.decided_at)}`
+                              : ""}
+                          </p>
+                        )}
                     </CardContent>
                   </Card>
                 ))}
